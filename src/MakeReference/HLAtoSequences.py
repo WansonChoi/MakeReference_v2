@@ -31,7 +31,7 @@ def HLAtoSequences(_p_ped, _dictionary, _type, _out):
 
     # (1) ped file existence
     if not os.path.isfile(_p_ped):
-        print(std_MAIN_PROCESS_NAME + "Given ped file doen't exist. Please check it againg.\n")
+        print(std_MAIN_PROCESS_NAME + "Given ped file doen't exist. Please check it again.\n")
         sys.exit()
 
     # (2) HLA DICTIONARY file
@@ -41,7 +41,7 @@ def HLAtoSequences(_p_ped, _dictionary, _type, _out):
 
     # (3) Chekcing `_type`
     if not (_type == "AA" or _type == "SNPS"):
-        print(std_MAIN_PROCESS_NAME + "Given value for argument `_type` has wrong value. Please check it againg.\n")
+        print(std_MAIN_PROCESS_NAME + "Given value for argument `_type` has wrong value. Please check it again.\n")
         sys.exit()
 
 
@@ -214,7 +214,7 @@ if __name__ == '__main__':
         HLAtoSequences.py
         - This script Converts HLA alleles (in .ped file format) to amino acid or DNA sequences
 
-        Input file should contain: FID, IID, pID, mID, sex, pheno, HLA-A (2), B (2), C (2), 
+        Input file should contain: FID, IID, pID, mID, sex, pheno, HLA-A (2), B (2), C (2),
         DPA1 (2), DPB1 (2), DQA1 (2), DQB1 (2), DRB1 (2) ... Broad Order
 
     #########################################################################################
@@ -269,5 +269,3 @@ if __name__ == '__main__':
 
     # Implementing Main Function
     HLAtoSequences(args.ped, args.dict, args.type, args.o)
-
-
