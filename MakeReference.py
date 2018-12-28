@@ -15,7 +15,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
                   _dictionary_SNPS_map='./data/MakeReference_old/HLA_DICTIONARY_SNPS.map',
                   _dictionary_SNPS='./data/MakeReference_old/HLA_DICTIONARY_SNPS.txt',
                   _previous_version=False,
-                  _hg = "19"):
+                  _hg = "19",
+                  _mem = "2000m"):
 
 
 
@@ -129,8 +130,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     os.system(' '.join(["mkdir -p", INTERMEDIATE_PATH]))
 
     plink = ' '.join([_p_plink, "--noweb", "--silent"])
-    beagle = ' '.join(["java", "-Xmx2000m", "-jar", _p_beagle])
-    linkage2beagle = ' '.join(["java", "-Xmx2000m", "-jar", _p_linkage2beagle])
+    beagle = ' '.join(["java", "-Xmx", _mem, "-jar", _p_beagle])
+    linkage2beagle = ' '.join(["java", "-Xmx",_mem, "-jar", _p_linkage2beagle])
 
 
 
@@ -144,7 +145,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     QC = 1
     PREPARE = 1
     PHASE = 1
-    CLEANUP = 1
+    CLEANUP = 0 # set to zero for time being
 
 
 
@@ -159,14 +160,14 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         ./HLAtoSequences.pl $HLA_DATA HLA_DICTIONARY_AA.txt AA > $OUTPUT.AA.ped
         cp HLA_DICTIONARY_AA_hg19.map $OUTPUT.AA.map # hg19
         # cp HLA_DICTIONARY_AA.map $OUTPUT.AA.map
-    
+
         echo "[$i] Encoding amino acids positions." ;  @ i++
         ./encodeVariants.pl $OUTPUT.AA.ped $OUTPUT.AA.map $OUTPUT.AA.CODED
-    
+
         plink --file $OUTPUT.AA.CODED --missing-genotype 0 --make-bed --out $OUTPUT.AA.TMP
         awk '{if ($5 == "0" || $5 == "x" || $6 == "x"){print $2}}' $OUTPUT.AA.TMP.bim | grep -v INS | cut -f2 > to_remove
         plink --bfile $OUTPUT.AA.TMP --exclude to_remove --make-bed --out $OUTPUT.AA.CODED
-    
+
         # rm $OUTPUT.AA.TMP*; rm to_remove
         # rm $OUTPUT.AA.???
         '''
@@ -291,24 +292,24 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
             echo "[$i] Extracting founders."; @ i++
             # founder의 정의가 이게 맞는건 아니겠지만, 아래 plink명령어를 거치고 나오는 founder라는 애들은 모두 엄마,아빠 ID정보가 없는 애들임.
             plink --bfile $SNP_DATA --filter-founders --mind 0.3 --alleleACGT --make-bed --out $SNP_DATA.FOUNDERS
-        
+
             # Initial QC on Reference SNP panel
             plink --bfile $SNP_DATA.FOUNDERS --hardy        --out $SNP_DATA.FOUNDERS.hardy  # 진짜 92명에 대해 position별로 HWE test한 결과
-            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   # 실제 --freq 옵션이 allele frequency계산해주는 옵션임. 
+            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   # 실제 --freq 옵션이 allele frequency계산해주는 옵션임.
             plink --bfile $SNP_DATA.FOUNDERS --missing      --out $SNP_DATA.FOUNDERS.missing
-            awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.hardy.hwe      | awk ' $9 < 0.000001 { print $2 }' | sort -u > remove.snps.hardy 
+            awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.hardy.hwe      | awk ' $9 < 0.000001 { print $2 }' | sort -u > remove.snps.hardy
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.freq.frq       | awk ' $5 < 0.01 { print $2 } '             > remove.snps.freq
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.missing.lmiss  | awk ' $5 > 0.05 { print $2 } '              > remove.snps.missing
             cat remove.snps.*                                            | sort -u                                     > all.remove.snps
-        
+
             plink --bfile $SNP_DATA.FOUNDERS --allow-no-sex --exclude all.remove.snps --make-bed --out $SNP_DATA.FOUNDERS.QC
-        
+
             # Founders are identified here as individuals with "0"s in mother and father IDs in .fam file
-        
+
             plink --bfile $OUTPUT.HLA --filter-founders --maf 0.0001 --make-bed --out $OUTPUT.HLA.FOUNDERS
             plink --bfile $OUTPUT.SNPS.CODED --filter-founders --maf 0.0001 --make-bed --out $OUTPUT.SNPS.FOUNDERS
             plink --bfile $OUTPUT.AA.CODED --filter-founders --maf 0.0001 --make-bed --out $OUTPUT.AA.FOUNDERS
-        
+
             rm remove.snps.*
         endif
         """
@@ -417,10 +418,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         plink --bfile $OUTPUT.MERGED.FOUNDERS --freq --out $OUTPUT.MERGED.FOUNDERS.FRQ
         awk '{if (NR > 1 && ($5 < 0.0001 || $5 > 0.9999)){print $2}}' $OUTPUT.MERGED.FOUNDERS.FRQ.frq > all.remove.snps
         awk '{if (NR > 1){if (($3 == "A" && $4 == "P") || ($4 == "A" && $3 == "P")){print $2 "\tP"}}}' $OUTPUT.MERGED.FOUNDERS.FRQ.frq > allele.order
-    
+
         # QC: Maximum per-SNP missing > 0.5, MAF > 0.1%
         plink --bfile $OUTPUT.MERGED.FOUNDERS --reference-allele allele.order --exclude all.remove.snps --geno 0.5 --make-bed --out $OUTPUT
-    
+
         # Calculate allele frequencies
         plink --bfile $OUTPUT --keep-allele-order --freq --out $OUTPUT.FRQ
         rm $SNP_DATA.FOUNDERS.*
@@ -428,7 +429,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         rm $OUTPUT.*.FOUNDERS.???
         rm allele.order
         rm all.remove.snps
-        
+
         """
 
         TMP_allele_order = os.path.join(INTERMEDIATE_PATH, "allele.order")
@@ -466,29 +467,29 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
         """
         [Source from Buhm Han.]
-        
+
         awk '{print $2 " " $4 " " $5 " " $6}' $OUTPUT.bim > $OUTPUT.markers
         plink --bfile $OUTPUT --keep-allele-order --recode --alleleACGT --out $OUTPUT
         awk '{print "M " $2}' $OUTPUT.map > $OUTPUT.dat
         cut -d ' ' -f1-5,7- $OUTPUT.ped > $OUTPUT.nopheno.ped
-    
+
         echo "[$i] Converting to beagle format.";  @ i++
         linkage2beagle pedigree=$OUTPUT.nopheno.ped data=$OUTPUT.dat beagle=$OUTPUT.bgl standard=true > $OUTPUT.bgl.log
-        
-        
+
+
         [Source from Yang.]
-        
+
         awk '{print $2 " " $4 " " $5 " " $6}' $OUTPUT.bim > $OUTPUT.markers
         plink --bfile $OUTPUT --keep-allele-order --recode --alleleACGT --out $OUTPUT
         plink --bfile $OUTPUT --recode --transpose --out $OUTPUT
         # awk '{print "M " $2}' $OUTPUT.map > $OUTPUT.dat
         # cut -d ' ' -f1-5,7- $OUTPUT.ped > $OUTPUT.nopheno.ped
-    
+
         echo "[$i] Converting to beagle format.";  @ i++
         beagle2vcf -fnmarker $OUTPUT.markers -fnfam $OUTPUT.fam -fngtype $OUTPUT.tped -fnout $OUTPUT.vcf
-        
+
         I will make this code block based on source given by Yang. for now.
-        
+
         """
 
         print("\n[8] Preparing files for Beagle.")
@@ -565,23 +566,23 @@ if __name__ == "__main__" :
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
                                      description=textwrap.dedent('''\
     #################################################################################################
-        
+
         MakeReference.py
-        
+
         This script helps prepare a reference dataset for HLA imputation
 
         Usage(1)
-        : python3 MakeReference.py --previous-version -i ./data/MakeReference_old/HAPMAP_CEU 
+        : python3 MakeReference.py --previous-version -i ./data/MakeReference_old/HAPMAP_CEU
             -ped ./data/MakeReference_old/HAPMAP_CEU_HLA.ped -hg 18 -o ./Trial_HAPMAP_CEU
-        
+
         Usage(2)
-        : python3 MakeReference.py -i ./data/MakeReference/HAPMAP_CEU 
+        : python3 MakeReference.py -i ./data/MakeReference/HAPMAP_CEU
             -ped ./data/MakeReference/HAPMAP_CEU_HLA.4field.ped -hg 18 -o ./Trial_HAPMAP_CEU
-            -dict-AA ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.txt 
-            -dict-AA-map ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.map 
-            -dict-SNPS ./data/MakeReference/HLA_DICTIONARY_SNPS.hg18.imgt370.txt 
+            -dict-AA ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.txt
+            -dict-AA-map ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.map
+            -dict-SNPS ./data/MakeReference/HLA_DICTIONARY_SNPS.hg18.imgt370.txt
             -dict-SNPS-map ./data/MakeReference/HLA_DICTIONARY_SNPS.hg18.imgt370.map
-                
+
         HLA PED file should contain HLA alleles in the following (alphabetical) order:
         HLA-A, B, C, DPA1, DPB1, DQA1, DQB1, DRB1
 
@@ -598,6 +599,7 @@ if __name__ == "__main__" :
     parser.add_argument("-i", help="\nInput Data file(.bed/.bim/.fam)\n\n", required=True)
     parser.add_argument("-ped", help="\nHLA Type Data(.ped)\n\n", required=True)
     parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19)\n\n", choices=["18", "19", "38"], metavar="hg", default="19")
+    parser.add_argument("-mem", help="\nMemory requried for beagle\n\n", default="12g")
     parser.add_argument("-o", help="\nOutput file prefix\n\n")
 
     parser.add_argument("--previous-version", help="\nIf you give this option, The MakeReference will work as old version.\n\n",
@@ -643,6 +645,7 @@ if __name__ == "__main__" :
     #                           "-dict-AA-map", "./data/MakeReference/HLA_DICTIONARY_AA.hg19.imgt3320.map",
     #                           "-dict-SNPS", "./data/MakeReference/HLA_DICTIONARY_SNPS.hg19.imgt3320.txt",
     #                           "-dict-SNPS-map", "./data/MakeReference/HLA_DICTIONARY_SNPS.hg19.imgt3320.map",
+    #"-m","2000m",
     #                           ])
 
     # ==========< Perfectly Old version >==========
@@ -659,6 +662,7 @@ if __name__ == "__main__" :
     t_dict_AA_map = ""
     t_dict_SNPS = ""
     t_dict_SNPS_map = ""
+    t_mem = ""
 
 
     if (args.dict_AA != "Not_given" and args.dict_AA_map != "Not_given" and args.dict_SNPS != "Not_given" and args.dict_SNPS_map != "Not_given"):
@@ -669,7 +673,6 @@ if __name__ == "__main__" :
         t_dict_AA_map = args.dict_AA_map
         t_dict_SNPS = args.dict_SNPS
         t_dict_SNPS_map = args.dict_SNPS_map
-
 
     elif (args.dict_AA == "Not_given" and args.dict_AA_map == "Not_given" and args.dict_SNPS == "Not_given" and args.dict_SNPS_map == "Not_given"):
 
@@ -700,10 +703,11 @@ if __name__ == "__main__" :
 
         """
         If the option `--previous-version` is given, then the value of `-hg` option will be fixed to "18".
-        I took this measure because previous version of the framework only covers hg 18.  
+        I took this measure because previous version of the framework only covers hg 18.
         """
 
         args.hg = "18"
+        args.mem= "2000m"
 
         print("\n[Warning]: Only hg18 is available for previous version of MakeReference. Human Genome version will be set to hg 18 by force.\n")
 
@@ -716,4 +720,5 @@ if __name__ == "__main__" :
     # Implementing Main Function.
     MakeReference(_INPUT_DATA=args.i, _HLA_ped=args.ped, _OUTPUT_Prefix=args.o, _previous_version=args.previous_version, _hg=args.hg,
                   _dictionary_AA=t_dict_AA, _dictionary_AA_map=t_dict_AA_map,
-                  _dictionary_SNPS=t_dict_SNPS, _dictionary_SNPS_map=t_dict_SNPS_map)
+                  _dictionary_SNPS=t_dict_SNPS, _dictionary_SNPS_map=t_dict_SNPS_map,
+                  _mem=args.mem)
