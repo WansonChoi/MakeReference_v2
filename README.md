@@ -1,4 +1,4 @@
-This is copy of project which is supposed to be sent to Y. Luo.
+MakeReference remake from WansonChoi (https://github.com/WansonChoi/MakeReference_v2/) usng python
 
 Please check 'docs/' directory for more detailed documentation("MakeReference", "NomenCleaner").
 
