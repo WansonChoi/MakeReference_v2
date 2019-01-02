@@ -131,7 +131,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     plink = ' '.join([_p_plink, "--noweb", "--silent"])
     beagle = ' '.join(["java", "-Xmx", _mem, "-jar", _p_beagle])
-    linkage2beagle = ' '.join(["java", "-Xmx",_mem, "-jar", _p_linkage2beagle])
+    linkage2beagle = ''.join(["java ", "-Xmx",_mem, " -jar", _p_linkage2beagle])
 
 
 
@@ -500,16 +500,19 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT])
         print(command)
         os.system(command)
-        command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.map', ">", OUTPUT+'.dat'])
-        print(command)
-        os.system(command)
-        command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.ped', ">", OUTPUT+'.nopheno.ped'])
+        command = ' '.join([plink, "--bfile", OUTPUT, "--recode --transpose --out", OUTPUT])
+        #command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.map', ">", OUTPUT+'.dat'])
+        #print(command)
+        #os.system(command)
+        #command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.ped', ">", OUTPUT+'.nopheno.ped'])
         print(command)
         os.system(command)
 
         print("\n[9] Converting to beagle format.")
 
-        command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
+        #command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
+        command = ' '.join([beagle2vcf, "-fnmarker", OUTPUT,".markers -fnfam", OUTPUT,".fam -fngtype", OUTPUT,".tped -fnout", OUTPUT,".vcf"])
+
         print(command)
         os.system(command)
 
@@ -526,10 +529,25 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         '''
         print("\n[10] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).")
 
-        command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
+        #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
+
+        #new beagle (>v4), assuming 8 threads and 10 interations
+        command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 missing=0 verbose=true lowmem=true", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
         print(command)
         os.system(command)
 
+
+        #converting back to Beagle v3
+        ```
+        echo "[$i] Converting vcf output to Beagle v3 phased haplotype files."; @ i++
+
+        vcf2phased -gprobs_opt 2 -fnvcf $OUTPUT.bgl.vcf -fnfam $OUTPUT.fam -fnmarker $OUTPUT.markers -fnphased $OUTPUT.bgl.phased
+
+        echo ""
+        echo "[$i] Reverting hacked allele identities in *.bgl.vcf file back to those used in reference panel."; @ i++
+
+        revert_alleles -script_opt 2 -fnvcf $OUTPUT.bgl.vcf -fnref $OUTPUT.bim
+        ```
 
 
     if CLEANUP:
