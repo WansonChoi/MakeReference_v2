@@ -24,6 +24,8 @@ genepos_hg = {"18": {"A": 30018226, "C": 31344505, "B": 31429628, "DRB1": 326545
               "38": {"A": 29942470, "C": 31268749, "B": 31353872, "DRB1": 32578770, "DQA1": 32637406, "DQB1": 32659464,
                      "DPA1": 33064569, "DPB1": 33075926}}
 
+genepos_hg_previous = {"18": {"A": 30019970, "C": 31346171, "B": 31431272, "DRB1": 32660042, "DQA1": 32716284, "DQB1": 32739039,
+                              "DPA1": 33145064, "DPB1": 33157346}}
 
 
 
@@ -31,6 +33,14 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __use_Pandas=False, __asCapital=True, _
               __previous_version=False):
 
 
+
+    ### Intermediate path.
+    _OUTPUT = _OUTPUT if not _OUTPUT.endswith('/') else _OUTPUT.rstrip('/')
+    if bool(os.path.dirname(_OUTPUT)):
+        INTERMEDIATE_PATH = os.path.dirname(_OUTPUT)
+        os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
+    else:
+        INTERMEDIATE_PATH = "./"
 
 
 
@@ -328,125 +338,105 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __use_Pandas=False, __asCapital=True, _
 
     else:
 
-        ### Acquiring `HLA_allele_sets_4field`.
-
-        HLA_allele_sets_4field = {HLA_names[i]: [] for i in range(0, len(HLA_names))}
-
-        with open(_CHPED, 'r') as f_chped:
-
-            count = 0
-
-            for l in f_chped:
-
-                """
-                l[:6] := ("FID", "IID", "PID", "MID", "Sex", "Phe")
-                l[6:8] := HLA-A
-                l[8:10] := HLA-B
-                ...
-                l[20:22] := HLA-DRB1
-                """
-
-                t_line = re.split(r'\s+', l.rstrip('\n'))
-
-                for i in range(0, len(HLA_names)):
-
-                    idx1 = 2*i + 6
-                    idx2 = idx1 + 1
-
-                    if t_line[idx1] != "0" and (t_line[idx1] not in HLA_allele_sets_4field[HLA_names[i]]):
-                        HLA_allele_sets_4field[HLA_names[i]].append(t_line[idx1])
-                    if t_line[idx2] != "0" and (t_line[idx2] not in HLA_allele_sets_4field[HLA_names[i]]):
-                        HLA_allele_sets_4field[HLA_names[i]].append(t_line[idx2])
-
-
-                count += 1
-                # if count > 5 : break
-
-
-        # Result checking
-        print("\n4-field HLA alleles.")
-        for k, v in HLA_allele_sets_4field.items():
-            print("{}: {}".format(k, v))
-
-
-
-        ### Acquiring `HLA_allele_sets_1field`
-
-        p = re.compile(r'(\w+\*\d{2,3})') if not __previous_version else re.compile(r'(\w+:\d{2})')
-
-        HLA_allele_sets_1field = {HLA_names[i]: [] for i in range(0, len(HLA_names))}
-
-        for i in range(0, len(HLA_names)):
-
-            for al_4field in HLA_allele_sets_4field[HLA_names[i]]:
-
-                m = p.match(al_4field)
-
-                if m and (m.group() not in HLA_allele_sets_1field[HLA_names[i]]) and (m.group() not in HLA_allele_sets_4field[HLA_names[i]]):
-                    HLA_allele_sets_1field[HLA_names[i]].append(m.group())
-
-        # Result checking
-        print("\n1-field HLA alleles.")
-        for k, v in HLA_allele_sets_1field.items():
-            print("{}: {}".format(k, v))
-
-
-
-        ### Merging 1field and 4field alleles
-
-        HLA_allele_sets_merged = {}
-
-        for i in range(0, len(HLA_names)):
-            HLA_allele_sets_merged[HLA_names[i]] = HLA_allele_sets_4field[HLA_names[i]]
-            HLA_allele_sets_merged[HLA_names[i]].extend(HLA_allele_sets_1field[HLA_names[i]])
-
-            # sorting
-            HLA_allele_sets_merged[HLA_names[i]].sort()
-
-        # Result checking
-        print("\nMerged and sorted.")
-        for k, v in HLA_allele_sets_merged.items():
-            print("{}: {}".format(k, v))
-
-
-
-        ### Making new *.HLA.map file.
-
-        # Concatening `HLA_allele_sets_merged` into a single list.
-        l_HLA_allele_sets_merged = []
-        l_HLA = []
-
-        for i in (range(0, len(HLA_names)) if not __previous_version else HLA_names2):
-            l_HLA_allele_sets_merged.extend(HLA_allele_sets_merged[HLA_names[i]])
-            l_HLA.extend([HLA_names[i] for z in range(0, len(HLA_allele_sets_merged[HLA_names[i]]))])
-
-        print("\nMerged as list.")
-        print(l_HLA_allele_sets_merged)
-        print(l_HLA)
-
-
         if __previous_version:
-            l_HLA_allele_sets_merged = list(map(lambda x : re.sub(':', repl='', string=re.sub(':', repl='_', count=1, string=x)), l_HLA_allele_sets_merged))
+
+            ### Acquiring `HLA_allele_sets`.
+
+            HLA_allele_sets = {HLA_names[i]: [] for i in range(0, len(HLA_names))}
+
+            p = re.compile(r'\w+:(\d{2}):(\d{2})[A-Z]?$')
+
+            with open(_CHPED, 'r') as f_chped:
+
+                count = 0
+
+                for l in f_chped:
+
+                    """
+                    l[:6] := ("FID", "IID", "PID", "MID", "Sex", "Phe")
+                    l[6:8] := HLA-A
+                    l[8:10] := HLA-B
+                    ...
+                    l[20:22] := HLA-DRB1
+                    """
+
+                    t_line = re.split(r'\s+', l.rstrip('\n'))
+                    # print(t_line)
+
+                    for i in range(0, len(HLA_names)):
+
+                        idx1 = 2*i + 6
+                        idx2 = idx1 + 1
+
+                        al1 = t_line[idx1]
+                        al2 = t_line[idx2]
 
 
-        map_LABELS = ["HLA_" + al for al in l_HLA_allele_sets_merged]
-        map_POS = [str(genepos_hg[_hg][_hla]) for _hla in l_HLA]
+                        if al1 != "0" and p.match(al1):
 
-        with open(_OUTPUT + ".map", 'w') as f_HLA_map:
-            f_HLA_map.writelines(('\t'.join(["6", map_LABELS[i], "0", map_POS[i]]) + "\n" for i in range(0, len(map_LABELS))))
+                            t_al1 = p.findall(al1).pop()
 
-            if __addDummyMarker:
-                f_HLA_map.write('\t'.join(["6", "dummy_marker", "0", "33999999"]) + "\n")
+                            al1_4digit = ''.join(t_al1)
+                            al1_2digit = t_al1[0]
+
+                            if al1_4digit not in HLA_allele_sets[HLA_names[i]]:
+                                HLA_allele_sets[HLA_names[i]].append(al1_4digit)
+                            if al1_2digit not in HLA_allele_sets[HLA_names[i]]:
+                                HLA_allele_sets[HLA_names[i]].append(al1_2digit)
+
+
+                        if al2 != "0" and p.match(al2):
+
+                            t_al2 = p.findall(al2).pop()
+
+                            al2_4digit = ''.join(t_al2)
+                            al2_2digit = t_al2[0]
+
+                            if al2_4digit not in HLA_allele_sets[HLA_names[i]]:
+                                HLA_allele_sets[HLA_names[i]].append(al2_4digit)
+                            if al2_2digit not in HLA_allele_sets[HLA_names[i]]:
+                                HLA_allele_sets[HLA_names[i]].append(al2_2digit)
+
+
+                    count += 1
+                    # if count > 5 : break
+
+
+            for i in range(0, len(HLA_names)):
+                HLA_allele_sets[HLA_names[i]].sort()
+
+
+            # Result checking
+            print("\nHLA alleles.")
+            for k, v in HLA_allele_sets.items():
+                print("{}: {}".format(k, v))
+
+
+            ### Making a new *.HLA.map file.
+
+            map_LABELS = ['_'.join(["HLA", HLA_names[i], HLA_allele_sets[HLA_names[i]][j]]) for i in HLA_names2 for j in range(0, len(HLA_allele_sets[HLA_names[i]]))]
+            # print(map_LABELS)
+
+            map_POS = [str(genepos_hg_previous[_hg][HLA_names[i]]) for i in HLA_names2 for z in range(0, len(HLA_allele_sets[HLA_names[i]]))]
+            # print(map_POS)
+
+            with open(_OUTPUT + ".map", 'w') as f_HLA_map:
+                f_HLA_map.writelines(('\t'.join(["6", map_LABELS[i], "0", map_POS[i]]) + "\n" for i in range(0, len(map_LABELS))))
+
+                if __addDummyMarker:
+                    f_HLA_map.write('\t'.join(["6", "dummy_marker", "0", "33999999"]) + "\n")
 
 
 
-        ### Making a new *.HLA.ped file.
+            ### Making a new *.HLA.ped file.
 
-        with open(_OUTPUT + ".ped", 'w') as f_HLA_ped:
-            f_HLA_ped.writelines(MakeHLAPed(_CHPED, HLA_allele_sets_merged,
-                                            __asCapital=__asCapital, __addDummyMarker=__addDummyMarker,
-                                            __previous_version=__previous_version))
+            with open(_OUTPUT + ".ped", 'w') as f_HLA_ped:
+                f_HLA_ped.writelines(MakeHLAPed(_CHPED, HLA_allele_sets,
+                                                __asCapital=__asCapital, __addDummyMarker=__addDummyMarker,
+                                                __previous_version=__previous_version))
 
+        else:
+            print("Hello")
 
 
 
@@ -495,44 +485,86 @@ def PrintGenotypes3(_allele1, _allele2, _seg_ALL_ALLELES):
 
 
 # (2019. 1. 3.) Introduced for memory issues.
-def PrintGenotypes4(_allele1, _allele2, _HLA_allele_sets_merged_byHLA, __asCapital=True):
+def PrintGenotypes4(_allele1, _allele2, _HLA_allele_sets_byHLA,
+                    __asCapital=True, __previous_version=False):
 
     l_output = []
 
     _present_ = "P" if __asCapital else "p"
     _absent_ = "A" if __asCapital else "a"
 
-    if len(_HLA_allele_sets_merged_byHLA) > 0:
 
-        if ((_allele1 != "0") and (_allele2 != "0")):
+    if __previous_version:
 
-            allele1_PAcheck = [_present_ if (x in _allele1) else _absent_ for x in _HLA_allele_sets_merged_byHLA]
-            allele2_PAcheck = [_present_ if (x in _allele2) else _absent_ for x in _HLA_allele_sets_merged_byHLA]
+        for i in range(0, len(_HLA_allele_sets_byHLA)):
 
-            # "in" operator를 쓰면 안될거같은게, 예를 들어 "10"은 0"10"1 이거 이런식으로 찾아와서 P박아버리는 케이스가 좀 있을거같음.
+            _ALLELE = _HLA_allele_sets_byHLA[i]
 
-            for i in range(0, len(allele1_PAcheck)):
-                l_output.append(allele1_PAcheck[i])
-                l_output.append(allele2_PAcheck[i])
+            G1 = "-1"
+            G2 = "-1"
 
-        else:
+            if _allele1 != "0" and _allele2 != "0":
 
-            for i in range(0, len(_HLA_allele_sets_merged_byHLA)):
+                p_4digit = re.compile(r'\w+:(\d{2}):(\d{2})[A-Z]?$')
+                p_2digit = re.compile(r'\w+:(\d{2})[A-Z]?$')
+
+
+                # Allele 1
+                if p_4digit.match(_allele1):
+                    _allele1 = ''.join(p_4digit.findall(_allele1).pop())
+                elif p_2digit.match(_allele1):
+                    _allele1 = p_2digit.findall(_allele1).pop()
+
+                if _allele1 == _ALLELE or _allele1[:2] == _ALLELE:
+                    G1 = _present_
+                elif len(_allele1) == 2 and len(_ALLELE) == 4 and _ALLELE[:2] == _allele1:
+                    G1 = "0"
+                else:
+                    G1 = _absent_
+
+
+                # Allele 2
+                if p_4digit.match(_allele2):
+                    _allele2 = ''.join(p_4digit.findall(_allele2).pop())
+                elif p_2digit.match(_allele2):
+                    _allele2 = p_2digit.findall(_allele2).pop()
+
+                if _allele2 == _ALLELE or _allele2[:2] == _ALLELE:
+                    G2 = _present_
+                elif len(_allele2) == 2 and len(_ALLELE) == 4 and _ALLELE[:2] == _allele2:
+                    G2 = "0"
+                else:
+                    G2 = _absent_
+
+
+            else:
+                # If at least one HLA allele which is given in *.chped is "0", then consider both of them are "0"
+                G1 = "0"
+                G2 = "0"
+
+
+
+
+            if G1 == "0" or G2 == "0":
                 l_output.append("0")
                 l_output.append("0")
+            else:
+                l_output.append(G1)
+                l_output.append(G2)
+
 
 
         return '\t'.join(l_output)
 
-
     else:
-
-        # In cases such as "DPA1" or "DPB1 where any alleles don't appear, Just skip.
-        pass
+        print("Fill this to work with 4-field allele.")
 
 
+    return '\t'.join(l_output)
 
-def MakeHLAPed(_CHPED, _HLA_allele_sets_merged, __asCapital=True, __addDummyMarker=False, __previous_version=False):
+
+
+def MakeHLAPed(_CHPED, _HLA_allele_sets, __asCapital=True, __addDummyMarker=False, __previous_version=False):
 
     with open(_CHPED, 'r') as f_chped:
 
@@ -550,10 +582,12 @@ def MakeHLAPed(_CHPED, _HLA_allele_sets_merged, __asCapital=True, __addDummyMark
             t_line[20:22] := HLA-DRB1
             """
 
+            t_iterator = range(0, len(HLA_names)) if not __previous_version else HLA_names2
+
             __ped_info__ = '\t'.join(t_line[:6])
             __genomic_info__ = '\t'.join([
-                PrintGenotypes4(t_line[2 * i + 6], t_line[2 * i + 7], _HLA_allele_sets_merged[HLA_names[i]], __asCapital=__asCapital)
-                for i in (range(0, len(HLA_names)) if not __previous_version else HLA_names2) if len(_HLA_allele_sets_merged[HLA_names[i]]) > 0
+                PrintGenotypes4(t_line[2 * i + 6], t_line[2 * i + 7], _HLA_allele_sets[HLA_names[i]], __asCapital=__asCapital, __previous_version=__previous_version)
+                for i in t_iterator if len(_HLA_allele_sets[HLA_names[i]]) > 0
             ])
 
             __return__ = '\t'.join([__ped_info__, __genomic_info__])
@@ -592,44 +626,43 @@ if __name__ == "__main__":
 
     parser.add_argument("-h", "--help", help="\nShow this help message and exit\n\n", action='help')
 
-    parser.add_argument("-ped", help="\nHLA Type Data(Standard 4-field allele \"*.ped\" file).\n\n", required=True)
+    parser.add_argument("-chped", help="\nHLA Type Data(Standard 4-field allele \"*.ped\" file).\n\n", required=True)
     parser.add_argument("-o", help="\nOutput file prefix.\n\n", required=True)
 
-    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19, 38)\n\n", choices=["18", "19", "38"], metavar="hg", default="19")
+    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19, 38)\n\n", choices=["18", "19", "38"], metavar="hg", default="18")
 
-    parser.add_argument("--previous-version", help="\nIf you give this option, The MakeReference will work as original version.\n\n",
+    parser.add_argument("--previous-version", help="\nIf you give this option, The MakeReference will work like original version.\n\n",
+                        action='store_true')
+    parser.add_argument("--asSmallLetter", help="\n'P'resent and 'A'bsent to 'p'resent and 'a'bsent.\n\n",
+                        action='store_true')
+    parser.add_argument("--addDummyMarker", help="\nAdd dummy marker to prevent the glitch in work with plink(1.07).\n\n",
                         action='store_true')
 
 
 
     ##### <for Test> #####
 
-    # (2018. 2. 28.)
-    # args = parser.parse_args(["./COATING_TEST.coated.txt", "./TEST_0228", "--hg", "19"])
-
-    # args = parser.parse_args(["./HAPMAP_CEU_HLA.ped", "./TEST_0228", "--hg", "19"])
-    # args = parser.parse_args(["./COATING_TEST.coated.txt", "./TEST_0305", "-hg", "19"])
-
-    # (2018. 7. 16.)
-
-    # args = parser.parse_args(["-ped", "/Users/wansun/Git_Projects/MakeReference_RECODE_v2/makereference_recode_v2/data/MakeReference/HAPMAP_CEU_HLA.4field.ped",
-    #                           "-hg", "19",
-    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_RECODE_v2/makereference_recode_v2/MODULE_TEST_HAPMAP_CEU_HLA.4field.imgt370"])
-
     # (2019. 01. 06.)
+    # # --previous-version
+    # args = parser.parse_args(["-chped", "/Users/wansun/Git_Projects/MakeReference_v2/data/MakeReference/HAPMAP_CEU_HLA.old.chped",
+    #                           "-hg", "18",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190107/_3_encodeHLA/_Case_HAPMAP_CEU.HLA",
+    #                           "--previous-version"])
 
-    # --previous-version
-    args = parser.parse_args(["-ped", "/Users/wansun/Git_Projects/MakeReference_v2/data/MakeReference/HAPMAP_CEU_HLA.old.chped",
-                              "-hg", "18",
-                              "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190106/_3_encodeHLA/_Case_HAPMAP_CEU.HLA",
-                              "--previous-version"])
+    # # Generalized 4-field HLA alleles
+    # args = parser.parse_args(["-chped", "/Users/wansun/Git_Projects/MakeReference_v2/data/MakeReference/HAPMAP_CEU_HLA.4field.ped",
+    #                           "-hg", "18",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190107/_3_encodeHLA_4field/_Case_HAPMAP_CEU.HLA"])
+
+
 
 
 
     ##### <for Publication> #####
 
-    # args = parser.parse_args()
+    args = parser.parse_args()
     print(args)
 
 
-    encodeHLA(args.ped, args.o, args.hg, __previous_version=args.previous_version)
+    encodeHLA(args.chped, args.o, args.hg,
+              __asCapital=args.asSmallLetter, __previous_version=args.previous_version, __addDummyMarker=args.addDummayMarker)

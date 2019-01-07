@@ -700,17 +700,22 @@ def Old_Transformation(_HLA_allele1, _HLA_allele2, _hla):
         return '\t'.join(["0", "0"])
     else:
 
-        p = re.compile(r'\d{4}[A-Z]?$') # Only 4-digit with or without sigle suffix is accepted in old transformation.
+        p = re.compile(r'\d{4}[A-Z]?$') # Only 4-digit with or without single suffix is accepted in old transformation.
+        p_1field = re.compile(r'\d{2}') # decided to also process 1-field HLA alleles.
 
         # Allele1
         if p.match(_HLA_allele1):
             _new_al1 = ':'.join([_hla, _HLA_allele1[:2], _HLA_allele1[2:4]])
+        elif p_1field.match(_HLA_allele1):
+            _new_al1 = ':'.join([_hla, _HLA_allele1])
         else:
             _new_al1 = "0" if _HLA_allele1 == "0" else "-1"
 
         # Allele2
         if p.match(_HLA_allele2):
             _new_al2 = ':'.join([_hla, _HLA_allele2[:2], _HLA_allele2[2:4]])
+        elif p_1field.match(_HLA_allele2):
+            _new_al2 = ':'.join([_hla, _HLA_allele2])
         else:
             _new_al2 = "0" if _HLA_allele2 == "0" else "-1"
 
@@ -866,7 +871,7 @@ if __name__ == '__main__':
     # # (2018. 01. 06.)
     # args = parser.parse_args(["-ped", "/Users/wansun/Git_Projects/MakeReference_v2/data/MakeReference/HAPMAP_CEU_HLA.ped",
     #                           "-iat", "/Users/wansun/Git_Projects/MakeReference_v2/data/ClassifyGroups/INTEGRATED_ALLELE_TABLE.imgt370.iat",
-    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190106/HAPMAP_CEU.old",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190106/HAPMAP_CEU.HLA.old",
     #                           "--old-format"
     #                           ])
 
