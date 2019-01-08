@@ -4,9 +4,21 @@
 import os, sys, re
 import argparse, textwrap
 import pandas as pd
-# from collections import OrderedDict
 
-def NomenCleaner(_p_ped, _ped_descriptor, _p_iat, _out, _field_format, _f_NoCaption = False):
+
+########## < Core Global Variables > ##########
+
+std_MAIN_PROCESS_NAME = "\n[%s]: " % (os.path.basename(__file__))
+std_ERROR_MAIN_PROCESS_NAME = "\n[%s::ERROR]: " % (os.path.basename(__file__))
+std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__))
+
+HLA_names = ["A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1"]
+header_ped = ["FID", "IID", "PID", "MID", "Sex", "Phe"]
+
+
+
+def NomenCleaner(_hped, _hped_descriptor, _iat, _out, _field_format, _f_NoCaption=False):
+
     """
     NomenCleaner.py
 
@@ -17,18 +29,36 @@ def NomenCleaner(_p_ped, _ped_descriptor, _p_iat, _out, _field_format, _f_NoCapt
 
     ########## < Core Variables > ##########
 
-    HLA_names = ["A", "B", "C", "DPA1", "DPB1", "DQA1", "DQB1", "DRB1"]
-    header_ped = ["FamID", "IdivID", "P_ID", "M_ID", "Sex", "Phe"]
-
-    std_MAIN_PROCESS_NAME = "\n[%s]: " % (os.path.basename(__file__))
-    print(std_MAIN_PROCESS_NAME + "Init.")
-
     PED = None
     IAT = None
 
+
+    ### Intermediate path.
+    _out = _out if not _out.endswith('/') else _out.rstrip('/')
+    if bool(os.path.dirname(_out)):
+        INTERMEDIATE_PATH = os.path.dirname(_out)
+        os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
+    else:
+        INTERMEDIATE_PATH = "./"
+
+
+
+    # (2019. 01. 06) Temporary Hard Coding
+    if _field_format == 7:
+        # To make old format (ex. A:01:01)
+
+        with open(_out+".chped", 'w') as f_CHPED:
+            f_CHPED.writelines(Main_Transformation2(_hped))
+
+
+        return 0
+
+
+    print(std_MAIN_PROCESS_NAME + "Starting Nomen Clature cleaning job.")
+
     ########## < Loading "*.ped" file > ##########
 
-    PED = pd.read_table(_p_ped, sep='\t', header=None, dtype=str,
+    PED = pd.read_table(_hped, sep='\t', header=None, dtype=str,
                         names=header_ped + [item + "_" + str(i) for item in HLA_names for i in range(1, 3)]).set_index((header_ped))
 
     print(std_MAIN_PROCESS_NAME + "Loaded \"*.ped\" file.")
@@ -36,19 +66,19 @@ def NomenCleaner(_p_ped, _ped_descriptor, _p_iat, _out, _field_format, _f_NoCapt
 
     ########## < Loading "*.iat" file > ##########
 
-    IAT = pd.read_table(_p_iat, sep='\t', header=0, dtype=str)
+    IAT = pd.read_table(_iat, sep='\t', header=0, dtype=str)
 
-    print(std_MAIN_PROCESS_NAME + "Loaded \"*.iat\" file.\n")
-    print(IAT.head())
+    # print(std_MAIN_PROCESS_NAME + "Loaded \"*.iat\" file.\n")
+    # print(IAT.head())
 
     IAT = pd.concat([pd.DataFrame(IAT.loc[:, "Allele"].apply(lambda x: x.split('*')).tolist(), columns=["HLA", "Allele"]), IAT.loc[:, ["G_group", "P_group"]]], axis=1).set_index("HLA")
-    print("\nNew IAT\n")
-    print(IAT.head())
+    # print("\nNew IAT\n")
+    # print(IAT.head())
 
     IAT_dict = {HLA_names[i]: IAT.loc[HLA_names[i], :].set_index("Allele") for i in range(0, len(HLA_names))}
 
-    print("\nIAT divided by HLA gene names.\n")
-    print(IAT_dict["C"].head(10))
+    # print("\nIAT divided by HLA gene names.\n")
+    # print(IAT_dict["C"].head(10))
 
     """
     (2018. 7. 2.)
@@ -82,7 +112,7 @@ def NomenCleaner(_p_ped, _ped_descriptor, _p_iat, _out, _field_format, _f_NoCapt
         # idx_list = curr_IAT_dict.index.tolist()
 
         l_temp.append(PED.loc[:, [curr_hla_name + "_1", curr_hla_name + "_2"]].applymap(
-            lambda x: Main_Transformation(x, curr_hla_name, curr_IAT_dict, _ped_descriptor) if x != "0" else "0"))
+            lambda x: Main_Transformation(x, curr_hla_name, curr_IAT_dict, _hped_descriptor) if x != "0" else "0"))
 
     df_TRANSFORMED_4field = pd.concat(l_temp, axis=1)
 
@@ -634,13 +664,74 @@ def Main_Transformation(_single_allele, _hla_name, _df_IAT_Allelelist, _ped_desc
     return str(_al_filetered3)
 
 
+
+def Main_Transformation2(_hped):
+
+    #### [Warning] Temporary Hard coding. This funciton will be either adopted to the main transformation function or deprecated.
+
+    with open(_hped, 'r') as f_hped:
+
+        count = 0
+
+        for l in f_hped:
+
+            t_line = re.split(r'\s+', l.rstrip('\n'))
+
+            """
+            [0,1,2,3,4,5] := ped file information
+            [6,7] := HLA-A,
+            [8,9] := HLA-B,
+            ...,
+            [20, 21] := HLA-DRB1
+            """
+            __ped_info__ = '\t'.join(t_line[:6])
+            __genomic_info__ = '\t'.join([Old_Transformation(t_line[2*i+6], t_line[2*i+7], HLA_names[i]) for i in range(0, len(HLA_names))])
+
+            yield '\t'.join([__ped_info__, __genomic_info__]) + "\n"
+
+            count += 1
+            # if count > 5: break
+
+
+def Old_Transformation(_HLA_allele1, _HLA_allele2, _hla):
+
+
+    if (_HLA_allele1 == "0" and _HLA_allele2 == "0"):
+        return '\t'.join(["0", "0"])
+    else:
+
+        p = re.compile(r'\d{4}[A-Z]?$') # Only 4-digit with or without single suffix is accepted in old transformation.
+        p_1field = re.compile(r'\d{2}') # decided to also process 1-field HLA alleles.
+
+        # Allele1
+        if p.match(_HLA_allele1):
+            _new_al1 = ':'.join([_hla, _HLA_allele1[:2], _HLA_allele1[2:4]])
+        elif p_1field.match(_HLA_allele1):
+            _new_al1 = ':'.join([_hla, _HLA_allele1])
+        else:
+            _new_al1 = "0" if _HLA_allele1 == "0" else "-1"
+
+        # Allele2
+        if p.match(_HLA_allele2):
+            _new_al2 = ':'.join([_hla, _HLA_allele2[:2], _HLA_allele2[2:4]])
+        elif p_1field.match(_HLA_allele2):
+            _new_al2 = ':'.join([_hla, _HLA_allele2])
+        else:
+            _new_al2 = "0" if _HLA_allele2 == "0" else "-1"
+
+
+        return '\t'.join([_new_al1, _new_al2])
+
+
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
                                      description=textwrap.dedent('''\
     #########################################################################################
 
-     NomenCleaner.py
+        NomenCleaner.py
 
 
     #########################################################################################
@@ -653,12 +744,9 @@ if __name__ == '__main__':
 
     # Input (1) : *.ped file
     PED_TYPE = parser.add_mutually_exclusive_group(required=True)
-    PED_TYPE.add_argument("-ped", help="\nHLA Type Data(Standard 4-field allele \"*.ped\" file).\n\n", dest="ped",
-                          default="Not_given")
-    PED_TYPE.add_argument("-ped-Ggroup", help="\nHLA Type Data(G-group allele \"*.ped\" file).\n\n", dest="ped_G",
-                          default="Not_given")
-    PED_TYPE.add_argument("-ped-Pgroup", help="\nHLA Type Data(P-group allele \"*.ped\" file).\n\n", dest="ped_P",
-                          default="Not_given")
+    PED_TYPE.add_argument("-ped", help="\nHLA Type Data(Standard 4-field allele \"*.ped\" file).\n\n", dest="ped")
+    PED_TYPE.add_argument("-ped-Ggroup", help="\nHLA Type Data(G-group allele \"*.ped\" file).\n\n", dest="ped_G")
+    PED_TYPE.add_argument("-ped-Pgroup", help="\nHLA Type Data(P-group allele \"*.ped\" file).\n\n", dest="ped_P")
 
     # Input (2) : *.iat file
     parser.add_argument("-iat", help="\nIntegrated Allele Table file(*.iat).\n\n", required=True)
@@ -680,6 +768,9 @@ if __name__ == '__main__':
     output_digit_selection.add_argument("--G-group", help="\nOutput ped file as 'G-group' format.\n\n",
                                         action="store_true")
     output_digit_selection.add_argument("--P-group", help="\nOutput ped file as 'P-group' format.\n\n",
+                                        action="store_true")
+
+    output_digit_selection.add_argument("--old-format", help="\nOutput ped file as previous version format. (ex. A:01:01)\n\n",
                                         action="store_true")
 
     # Flag to remove HLA gene caption.
@@ -775,52 +866,80 @@ if __name__ == '__main__':
     #                           "--4field"
     #                           ])
 
+
+    # # < previous version output for compatibility issues >
+    # # (2018. 01. 06.)
+    # args = parser.parse_args(["-ped", "/Users/wansun/Git_Projects/MakeReference_v2/data/MakeReference/HAPMAP_CEU_HLA.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/MakeReference_v2/data/ClassifyGroups/INTEGRATED_ALLELE_TABLE.imgt370.iat",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190106/HAPMAP_CEU.HLA.old",
+    #                           "--old-format"
+    #                           ])
+
+
     ##### <for Publication> #####
 
     args = parser.parse_args()
+    print(args)
+
 
     ### Additional Argument processing
 
     ## Output Format Flags
-    FILE_FORMAT = 1 if args.oneF else 2 if args.twoF else 3 if args.threeF else 4 if args.fourF else 5 if args.G_group else 6 if args.P_group else -1
+
+    # FILE_FORMAT = 1 if args.oneF else 2 if args.twoF else 3 if args.threeF else 4 if args.fourF else 5 if args.G_group else 6 if args.P_group else -1
+    if args.oneF:
+        FIELD_FORMAT = 1
+    elif args.twoF:
+        FIELD_FORMAT = 2
+    elif args.threeF:
+        FIELD_FORMAT = 3
+    elif args.fourF:
+        FIELD_FORMAT = 4
+    elif args.G_group:
+        FIELD_FORMAT = 5
+    elif args.P_group:
+        FIELD_FORMAT = 6
+    elif args.old_format:
+        FIELD_FORMAT = 7
+    else:
+        FIELD_FORMAT = -1
+
 
     ## Which type of ped file given?
     _p_ped = -1
     _p_ped_descriptor = -1
 
-    if args.ped != "Not_given":
+    if args.ped:
         # Standard 4-field *.ped file given
         _p_ped = args.ped
         _p_ped_descriptor = 1
-    elif args.ped_G != "Not_given":
+    elif args.ped_G:
         # G-group *.ped file given
         _p_ped = args.ped_G
         _p_ped_descriptor = 2
-    elif args.ped_P != "Not_given":
+    elif args.ped_P:
         # P-group *.ped file given
         _p_ped = args.ped_P
         _p_ped_descriptor = 3
     else:
         # Assuming at least three of them given, there won't be the case which comes to here.
-        print("\nArgument for input *.ped file has a problem. Please check it again.\n")
+        print(std_ERROR_MAIN_PROCESS_NAME + "Argument for input *.ped file is not appropriate. Please check it again.\n")
         sys.exit()
 
     ## If input ped file is given as G-group(or P-group), then user can't choose output format as same G-group(as same to P-group)
-    if (_p_ped_descriptor == 2 and FILE_FORMAT == 5):
-        print("\nYou just asked pointless transformation(Transformation G-group to G-group is pointless).")
+    if (_p_ped_descriptor == 2 and FIELD_FORMAT == 5):
+        print(std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation G-group to G-group is pointless).")
         print("Skip this Transformation Request.\n")
         sys.exit()
 
         # (2018. 7. 10.) P to P or G to G 여도 NoDoubleColon인 경우는 할 수 있게 해줘야할듯.
 
-    if (_p_ped_descriptor == 3 and FILE_FORMAT == 6):
-        print("\nYou just asked pointless transformation(Transformation P-group to P-group is pointless).")
+    if (_p_ped_descriptor == 3 and FIELD_FORMAT == 6):
+        print(std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation P-group to P-group is pointless).")
         print("Skip this Transformation Request.\n")
         sys.exit()
 
-    print(args)
 
 
-    # Implementing Main Function
-    NomenCleaner(_p_ped, _p_ped_descriptor, args.iat, args.o, FILE_FORMAT, _f_NoCaption=args.NoCaption)
+    NomenCleaner(_p_ped, _p_ped_descriptor, args.iat, args.o, FIELD_FORMAT, _f_NoCaption=args.NoCaption)
 

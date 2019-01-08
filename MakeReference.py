@@ -5,66 +5,127 @@ import argparse, textwrap
 from pathlib import Path
 from platform import platform
 
+########## < Core Global Variables > ##########
 
+std_MAIN_PROCESS_NAME = "\n[%s]: " % (os.path.basename(__file__))
+std_ERROR_MAIN_PROCESS_NAME = "\n[%s::ERROR]: " % (os.path.basename(__file__))
+std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__))
+
+
+# def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
+#                   _p_plink='./dependency/plink_mac' if not bool(re.search(pattern="Linux", string=platform())) else './dependency/plink_linux',
+#                   _p_beagle='./dependency/beagle.jar',
+#                   _p_linkage2beagle='./dependency/linkage2beagle.jar',
+#                   _dictionary_AA_map='./data/MakeReference_old/HLA_DICTIONARY_AA.map',
+#                   _dictionary_AA='./data/MakeReference_old/HLA_DICTIONARY_AA.txt',
+#                   _dictionary_SNPS_map='./data/MakeReference_old/HLA_DICTIONARY_SNPS.map',
+#                   _dictionary_SNPS='./data/MakeReference_old/HLA_DICTIONARY_SNPS.txt',
+#                   _previous_version=False,
+#                   _hg = "19",
+#                   _mem = "2000m"):
 def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
-                  _p_plink='./dependency/plink_mac' if not bool(re.search(pattern="Linux", string=platform())) else './dependency/plink_linux',
-                  _p_beagle='./dependency/beagle.jar',
-                  _p_linkage2beagle='./dependency/linkage2beagle.jar',
-                  _dictionary_AA_map='./data/MakeReference_old/HLA_DICTIONARY_AA.map',
-                  _dictionary_AA='./data/MakeReference_old/HLA_DICTIONARY_AA.txt',
-                  _dictionary_SNPS_map='./data/MakeReference_old/HLA_DICTIONARY_SNPS.map',
-                  _dictionary_SNPS='./data/MakeReference_old/HLA_DICTIONARY_SNPS.txt',
-                  _previous_version=False,
-                  _hg = "19",
-                  _mem = "2000m"):
+                  _dictionary_AA, _dictionary_SNPS,
+                  _previous_version=True, _hg = "18", _mem = "2000m",
+                  _p_depedency="./dependency"):
+
+    """
+    """
+
+    """
+    (2019. 1. 5.) by Wanson
+    < Main arguments of MakeReference modification >
+    - `_p_plink`, `_p_beagle`, `_p_linkage2beagle` (dependency related arguments) 
+        => integrated to `_p_dependency`.
+    - `_dictionary_AA_map` and `_dictionary_SNPS_map` 
+        => integrated to `_dictionary_AA` and `_dictionary_SNPS`. Each two dictionary files will be dealt with the file prefix
+        (ex. "data/HLA_DICTIONARY_AA.txt" and "data/HLA_DICTIONARY_AA.map" => dealt with "data/HLA_DICTIONARY_AA"
+        => now it is positional arguments not optional.
+        (ex. "data/HLA_DICTOINARY_SNPS.txt" and "data/HLA_DICTOINARY_SNPS.map" => dealt with "data/HLA_DICTIONARY_SNPS"
+    - `_previous_version` set "True" by default.
+    - `_hg` set to "18" by default.    
+    
+    """
+
+    ########## < Preprocessing main arguments > ##########
+
+    if _previous_version:
+
+        # Human Genome version.
+        if _hg != "18":
+            _hg = "18"
+
+        # Dictionary (Use default dictionary)
+        if not (_dictionary_AA and _dictionary_SNPS):
+            _dictionary_AA = "data/MakeReference_old/HLA_DICTIONARY_AA"
+            _dictionary_SNPS = "data/MakeReference_old/HLA_DICTIONARY_SNPS"
 
 
 
-    ########## < Core Variables > ##########
+    # Memory representation
+    p = re.compile(r'\d+m$')
+    p2 = re.compile(r'g$')
 
-    ### Module name
+    if not p.match(_mem):
 
-    std_MAIN_PROCESS_NAME = "\n[%s]: " % (os.path.basename(__file__))
-    print(std_MAIN_PROCESS_NAME + "Init.\n")
+        if p2.search(_mem):
+            _mem = p.sub(repl="000m", string=_mem) # Gigabyte to Megabyte to use it in java.
+        else:
+            print(std_ERROR_MAIN_PROCESS_NAME + "Given memory for beagle is unappropriate. Please check it again.\n")
+            sys.exit()
 
 
-    ### Major paths for project
+    ########## < Path Variables > ##########
 
-    # data
-    p_data_MakeReference = './data/MakeReference_old' if _previous_version else './data/MakeReference'
+    ### Major path variables for project
 
     # src
     p_src_MakeReferece = "./src/MakeReference_old" if _previous_version else "./src/MakeReference"
 
 
-    ########## <CHECK FOR DEPENDENCIES> ##########
+    ########## < CHECK FOR DEPENDENCIES > ##########
 
     ### Other Software.
 
+    _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink_linux")
+    _p_beagle = os.path.join(_p_depedency, "beagle.jar")
+    _p_linkage2beagle = os.path.join(_p_depedency, "linkage2beagle.jar")
+    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf.jar")
+
     if not os.path.exists(_p_plink):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{0}'\n".format(os.path.dirname(_p_plink)))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_depedency))
         sys.exit()
     if not os.path.exists(_p_beagle):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'Beagle 3' (http://faculty.washington.edu/browning/beagle/beagle.html#download) in '{0}'\n".format(os.path.dirname(_p_beagle)))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'Beagle 4' (https://faculty.washington.edu/browning/beagle/b4_0.html#download) in '{}'\n".format(_p_depedency)) # Now we use beagle 4.
         sys.exit()
     if not os.path.exists(_p_linkage2beagle):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'linkage2beagle.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) (beagle.3.0.4/utility/linkage2beagle.jar) in '{0}'\n".format(os.path.dirname(_p_linkage2beagle)))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'linkage2beagle.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_depedency))
         sys.exit()
+    if not os.path.exists(_p_beagle2vcf):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'beagle2vcf.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_depedency))
+        sys.exit()
+
 
     ### Dictionary Information for HLA sequence
 
+    _dictionary_AA_seq = _dictionary_AA + ".txt"
+    _dictionary_AA_map = _dictionary_AA + ".map"
+
+    _dictionary_SNPS_seq = _dictionary_SNPS + ".txt"
+    _dictionary_SNPS_map = _dictionary_SNPS + ".map"
+
     if not os.path.exists(_dictionary_AA_map):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'HLA_DICTIONARY_AA.map' (included with this package) in '{0}'\n".format(os.path.dirname(_dictionary_AA_map)))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please check again whether '{}' is given properly.\n".format(_dictionary_AA_map))
         sys.exit()
-    if not os.path.exists(_dictionary_AA):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'HLA_DICTIONARY_AA.txt' (included with this package) in '{0}'\n".format(os.path.dirname(_dictionary_AA)))
+    if not os.path.exists(_dictionary_AA_seq):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please check again whether '{}' is given properly.\n".format(_dictionary_AA_seq))
         sys.exit()
     if not os.path.exists(_dictionary_SNPS_map):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'HLA_DICTIONARY_SNPS.map' (included with this package) in '{0}'\n".format(os.path.dirname(_dictionary_SNPS_map)))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please check again whether '{}' is given properly.\n".format(_dictionary_SNPS_map))
         sys.exit()
-    if not os.path.exists(_dictionary_SNPS):
-        print(std_MAIN_PROCESS_NAME + "Please Prepare 'HLA_DICTIONARY_SNPS.txt' (included with this package) in '{0}'\n".format(os.path.dirname(_dictionary_SNPS)))
+    if not os.path.exists(_dictionary_SNPS_seq):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please check again whether '{}' is given properly.\n".format(_dictionary_SNPS_seq))
         sys.exit()
+
 
     ### Source Code Scripts
 
@@ -73,19 +134,19 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         # New version with Python.
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "HLAtoSequences.py")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'HLAtoSequences.py' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'HLAtoSequences.py' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
         else:
             from src.MakeReference.HLAtoSequences import HLAtoSequences
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "encodeVariants.py")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'encodeVariants.py' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'encodeVariants.py' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
         else:
             from src.MakeReference.encodeVariants import encodeVariants
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "encodeHLA.py")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'encodeHLA.py' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'encodeHLA.py' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
         else:
             from src.MakeReference.encodeHLA import encodeHLA
@@ -94,15 +155,15 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         # Previous version with Perl.
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "HLAtoSequences.pl")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'HLAtoSequences.pl' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'HLAtoSequences.pl' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "encodeVariants.pl")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'encodeVariants.pl' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'encodeVariants.pl' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
 
         if not os.path.exists(os.path.join(p_src_MakeReferece, "encodeHLA.pl")):
-            print(std_MAIN_PROCESS_NAME + "Error. 'encodeHLA.pl' not found in '{0}'".format(p_src_MakeReferece))
+            print(std_ERROR_MAIN_PROCESS_NAME + "Error. 'encodeHLA.pl' not found in '{0}'".format(p_src_MakeReferece))
             sys.exit()
 
 
@@ -112,26 +173,24 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     HLA_DATA = _HLA_ped
 
 
-    # (2018. 5. 29) additional processing for intermediate path and output file prefix
-    p = Path(os.path.abspath(_OUTPUT_Prefix))
-    OUTPUT = _OUTPUT_Prefix
-    INTERMEDIATE_PATH = os.path.join(*p.parts[:-1])
+    ### Intermediate path.
+    OUTPUT = _OUTPUT_Prefix if not _OUTPUT_Prefix.endswith('/') else _OUTPUT_Prefix.rstrip('/')
+    if bool(os.path.dirname(OUTPUT)):
+        INTERMEDIATE_PATH = os.path.dirname(OUTPUT)
+        os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
+    else:
+        # If `os.path.dirname(OUTPUT)` doesn't exist, then it means the output of MakeReference should be genrated in current directory.
+        INTERMEDIATE_PATH = "./"
 
 
     # (2018. 5. 29) additional processing for intermediate path and output file prefix
     SNP_DATA = _INPUT_DATA
-    _INPUT_DATA_prefix = Path(_INPUT_DATA).name
+    SNP_DATA2 = os.path.join(INTERMEDIATE_PATH, os.path.basename(SNP_DATA)) # for each output directory
 
-    SNP_DATA2 = os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix) # for each output directory
-
-    print(std_MAIN_PROCESS_NAME + "Intermediate folder path is {0},\nOutput filename prefix is {1}\n\n".format(INTERMEDIATE_PATH, OUTPUT))
-
-    # print(' '.join(["mkdir -p", INTERMEDIATE_PATH]))
-    os.system(' '.join(["mkdir -p", INTERMEDIATE_PATH]))
 
     plink = ' '.join([_p_plink, "--noweb", "--silent"])
     beagle = ' '.join(["java", "-Xmx", _mem, "-jar", _p_beagle])
-    linkage2beagle = ''.join(["java ", "-Xmx",_mem, " -jar", _p_linkage2beagle])
+    linkage2beagle = ''.join(["java ", "-Xmx", _mem, " -jar", _p_linkage2beagle])
 
 
 
@@ -587,26 +646,29 @@ if __name__ == "__main__" :
 
         MakeReference.py
 
-        This script helps prepare a reference dataset for HLA imputation
+        This script generates a reference panel for HLA imputation
 
         Usage(1)
-        : python3 MakeReference.py --previous-version -i ./data/MakeReference_old/HAPMAP_CEU
-            -ped ./data/MakeReference_old/HAPMAP_CEU_HLA.ped -hg 18 -o ./Trial_HAPMAP_CEU
+        : python3 MakeReference.py 
+            --previous-version
+            -i ./data/MakeReference_old/HAPMAP_CEU
+            -ped ./data/MakeReference_old/HAPMAP_CEU_HLA.ped
+            -o ./Trial_HAPMAP_CEU
 
         Usage(2)
-        : python3 MakeReference.py -i ./data/MakeReference/HAPMAP_CEU
-            -ped ./data/MakeReference/HAPMAP_CEU_HLA.4field.ped -hg 18 -o ./Trial_HAPMAP_CEU
-            -dict-AA ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.txt
-            -dict-AA-map ./data/MakeReference/HLA_DICTIONARY_AA.hg18.imgt370.map
-            -dict-SNPS ./data/MakeReference/HLA_DICTIONARY_SNPS.hg18.imgt370.txt
-            -dict-SNPS-map ./data/MakeReference/HLA_DICTIONARY_SNPS.hg18.imgt370.map
+        : python3 MakeReference.py 
+            -i ./data/MakeReference/HAPMAP_CEU
+            -ped ./data/MakeReference/HAPMAP_CEU_HLA.4field.ped 
+            -hg 19 
+            -o ./Trial_HAPMAP_CEU
+            -dict-AA ./data/MakeReference/HLA_DICTIONARY_AA.hg19.imgt370
+            -dict-SNPS ./data/MakeReference/HLA_DICTIONARY_SNPS.hg19.imgt370
 
         HLA PED file should contain HLA alleles in the following (alphabetical) order:
         HLA-A, B, C, DPA1, DPB1, DQA1, DQB1, DRB1
 
     #################################################################################################
                                      '''),
-                                     # epilog="-*- Recoded to Python script by Wansun Choi in Han lab. at Asan Medical Center -*-",
                                      add_help=False)
 
 
@@ -614,30 +676,21 @@ if __name__ == "__main__" :
 
     parser.add_argument("-h", "--help", help="\nShow this help message and exit\n\n", action='help')
 
-    parser.add_argument("-i", help="\nInput Data file(.bed/.bim/.fam)\n\n", required=True)
+    parser.add_argument("-i", help="\nInput Data file prefix(.bed/.bim/.fam)\n\n", required=True)
     parser.add_argument("-ped", help="\nHLA Type Data(.ped)\n\n", required=True)
-    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19)\n\n", choices=["18", "19", "38"], metavar="hg", default="19")
-    parser.add_argument("-mem", help="\nMemory requried for beagle\n\n", default="12g")
-    parser.add_argument("-o", help="\nOutput file prefix\n\n")
+    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19)\n\n", choices=["18", "19", "38"], metavar="hg", default="18")
+    parser.add_argument("-mem", help="\nMemory requried for beagle(ex. 12g).\n\n", default="2g")
+    parser.add_argument("-o", help="\nOutput file prefix\n\n", required=True)
 
-    parser.add_argument("--previous-version", help="\nIf you give this option, The MakeReference will work as old version.\n\n",
+    parser.add_argument("--previous-version", help="\nIf you give this option, The MakeReference will work as original version.\n\n",
                         action='store_true')
 
-    hla_dict = parser.add_argument_group(title='HLA_DICTIONARY',
-                                         description='- Arguments to specify HLA_DICTIONARY Information to New version of MakeReference(2.0)\n'
-                                                     '- If you\'re going to use previous version of MakeReference, then Don\'t care about these options.')
-
-    hla_dict.add_argument("-dict-AA", help="\nInput HLA Dictionary file for AA Information.\n\n", default="Not_given")
-    hla_dict.add_argument("-dict-AA-map", help="\nInput HLA Dictionary .map file for AA Information.\n\n", default="Not_given")
-    hla_dict.add_argument("-dict-SNPS", help="\nInput HLA Dictionary file for SNPS Information.\n\n", default="Not_given")
-    hla_dict.add_argument("-dict-SNPS-map", help="\nInput HLA Dictionary .map file for SNPS Information\n\n", default="Not_given")
+    parser.add_argument("-dict-AA", help="\nThe file prefix of HLA Dictionaries of Amino Acids(AA).\n\n")
+    # hla_dict.add_argument("-dict-AA-map", help="\nInput HLA Dictionary .map file for AA Information.\n\n", default="Not_given")
+    parser.add_argument("-dict-SNPS", help="\nThe file prefix of HLA Dictionaries of SNPs(SNPS).\n\n")
+    # hla_dict.add_argument("-dict-SNPS-map", help="\nInput HLA Dictionary .map file for SNPS Information\n\n", default="Not_given")
 
 
-
-
-    ##### <for Publication> #####
-
-    args = parser.parse_args()
 
 
     ##### <for Test> #####
@@ -674,69 +727,51 @@ if __name__ == "__main__" :
     # args = parser.parse_args(["-i", "./data/MakeReference/HAPMAP_CEU", "-ped", "./data/MakeReference/HAPMAP_CEU_HLA.ped", "-o", "OLD_VERSION_TEST/PREV_VERSION_TEST", "--previous-version"]) # 완전히 구버젼으로 작동하게 하고 싶을때.
 
 
-    ##### Additional Argument processing
 
-    t_dict_AA = ""
-    t_dict_AA_map = ""
-    t_dict_SNPS = ""
-    t_dict_SNPS_map = ""
-    t_mem = ""
+    ##### <for Publication> #####
 
-
-    if (args.dict_AA != "Not_given" and args.dict_AA_map != "Not_given" and args.dict_SNPS != "Not_given" and args.dict_SNPS_map != "Not_given"):
-
-        # When all HLA DICTIONARY information is given properly,
-
-        t_dict_AA = args.dict_AA
-        t_dict_AA_map = args.dict_AA_map
-        t_dict_SNPS = args.dict_SNPS
-        t_dict_SNPS_map = args.dict_SNPS_map
-
-    elif (args.dict_AA == "Not_given" and args.dict_AA_map == "Not_given" and args.dict_SNPS == "Not_given" and args.dict_SNPS_map == "Not_given"):
-
-        # No values are given to HLA DICTIONARY related options.
-
-        if not args.previous_version:
-            # Abort
-            print("\n[Error]: None of HLA DICTIONARY files are given. Please check them all again.")
-            print('{"-dict-AA", "-dict-AA-map", "-dict-SNPS", "-dict-SNPS-map"}\n')
-            sys.exit()
-
-        else:
-            # In case of old version of MakeReference, then use default dataset.
-            t_dict_AA = './data/MakeReference_old/HLA_DICTIONARY_AA.txt'
-            t_dict_AA_map = './data/MakeReference_old/HLA_DICTIONARY_AA.map'
-            t_dict_SNPS = './data/MakeReference_old/HLA_DICTIONARY_SNPS.txt'
-            t_dict_SNPS_map = './data/MakeReference_old/HLA_DICTIONARY_SNPS.map'
-
-    else:
-        # Abort
-        print("\n[Error]: Not all of HLA DICTIONARY files are given. Please check them all again.")
-        print('{"-dict-AA", "-dict-AA-map", "-dict-SNPS", "-dict-SNPS-map"}\n')
-        sys.exit()
-
-
-    # (2018. 7. 16.)
-    if args.previous_version:
-
-        """
-        If the option `--previous-version` is given, then the value of `-hg` option will be fixed to "18".
-        I took this measure because previous version of the framework only covers hg 18.
-        """
-
-        args.hg = "18"
-        args.mem= "2000m"
-
-        print("\n[Warning]: Only hg18 is available for previous version of MakeReference. Human Genome version will be set to hg 18 by force.\n")
-
-
-
-
+    args = parser.parse_args()
     print(args)
 
 
+
+    ##### Additional Argument processing
+
+    ## Human Genome version
+
+    if args.previous_version:
+        args.hg = "18" # Which version is given, override it to "hg 18".
+
+
+    ## Dictionary
+
+    if not args.previous_version:
+
+        if args.dict_AA and args.dict_SNPS:
+
+            # When all HLA DICTIONARY information is given properly,
+            pass
+
+        else:
+            # At most one HLA dictionary file prefix is given.
+            print(std_ERROR_MAIN_PROCESS_NAME + "The prefix of HLA DICTIONARY files aren't given properly. Please check them all again.")
+            print('{"-dict-AA", "-dict-SNPS"}\n')
+            sys.exit()
+
+
+
+    ## Memory allocation.
+
+    p = re.compile(r'g$')
+
+    if p.search(args.mem):
+        args.mem = p.sub(repl="000m", string=args.mem) # Gigabyte to Megabyte to use it in java.
+    else:
+        print(std_ERROR_MAIN_PROCESS_NAME + "Given memory for beagle is unappropriate. Please check it again.\n")
+        sys.exit()
+
+
     # Implementing Main Function.
-    MakeReference(_INPUT_DATA=args.i, _HLA_ped=args.ped, _OUTPUT_Prefix=args.o, _previous_version=args.previous_version, _hg=args.hg,
-                  _dictionary_AA=t_dict_AA, _dictionary_AA_map=t_dict_AA_map,
-                  _dictionary_SNPS=t_dict_SNPS, _dictionary_SNPS_map=t_dict_SNPS_map,
-                  _mem=args.mem)
+    MakeReference(_INPUT_DATA=args.i, _HLA_ped=args.ped, _OUTPUT_Prefix=args.o,
+                  _dictionary_AA=args.dict_AA, _dictionary_SNPS=args.dict_SNPS,
+                  _previous_version=args.previous_version, _hg=args.hg, _mem=args.mem)
