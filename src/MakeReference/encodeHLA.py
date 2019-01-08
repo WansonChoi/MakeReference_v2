@@ -2,9 +2,7 @@
 
 # (2017/11/27) recoded by Wanson Choi
 import os, re
-import pandas as pd
 import argparse, textwrap
-from collections import OrderedDict
 
 
 ########## < Core Global Variables > ##########
@@ -29,8 +27,7 @@ genepos_hg_previous = {"18": {"A": 30019970, "C": 31346171, "B": 31431272, "DRB1
 
 
 
-def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asCapital=True, __addDummyMarker=False,
-              __previous_version=False):
+def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asSmallLetter=True, __addDummyMarker=False, __previous_version=False):
 
 
 
@@ -137,9 +134,9 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asCapital=True, __addDummyMarker=Fals
         ### Making a new *.HLA.ped file.
 
         with open(_OUTPUT + ".ped", 'w') as f_HLA_ped:
-            f_HLA_ped.writelines(MakeHLAPed(_CHPED, HLA_allele_sets,
-                                            __asCapital=__asCapital, __addDummyMarker=__addDummyMarker,
-                                            __previous_version=__previous_version))
+            f_HLA_ped.writelines(
+                MakeHLAPed(_CHPED, HLA_allele_sets, __asSmallLetter=__asSmallLetter, __addDummyMarker=__addDummyMarker,
+                           __previous_version=__previous_version))
 
     else:
         ### Acquiring `HLA_allele_sets`.
@@ -240,9 +237,9 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asCapital=True, __addDummyMarker=Fals
         ### Making a new *.HLA.ped file.
 
         with open(_OUTPUT + ".ped", 'w') as f_HLA_ped:
-            f_HLA_ped.writelines(MakeHLAPed(_CHPED, HLA_allele_sets,
-                                            __asCapital=__asCapital, __addDummyMarker=__addDummyMarker,
-                                            __previous_version=__previous_version))
+            f_HLA_ped.writelines(
+                MakeHLAPed(_CHPED, HLA_allele_sets, __asSmallLetter=__asSmallLetter, __addDummyMarker=__addDummyMarker,
+                           __previous_version=__previous_version))
 
 
 
@@ -253,13 +250,12 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asCapital=True, __addDummyMarker=Fals
 
 
 # (2019. 1. 3.) Introduced for memory issues.
-def PrintGenotypes4(_allele1, _allele2, _HLA_allele_sets_byHLA,
-                    __asCapital=True, __previous_version=False):
+def PrintGenotypes4(_allele1, _allele2, _HLA_allele_sets_byHLA, __asSmallLetter=False, __previous_version=False):
 
     l_output = []
 
-    _present_ = "P" if __asCapital else "p"
-    _absent_ = "A" if __asCapital else "a"
+    _present_ = "p" if __asSmallLetter else "P"
+    _absent_ = "a" if __asSmallLetter else "A"
 
 
 
@@ -354,7 +350,7 @@ def PrintGenotypes4(_allele1, _allele2, _HLA_allele_sets_byHLA,
 
 
 
-def MakeHLAPed(_CHPED, _HLA_allele_sets, __asCapital=True, __addDummyMarker=False, __previous_version=False):
+def MakeHLAPed(_CHPED, _HLA_allele_sets, __asSmallLetter=False, __addDummyMarker=False, __previous_version=False):
 
     with open(_CHPED, 'r') as f_chped:
 
@@ -376,7 +372,8 @@ def MakeHLAPed(_CHPED, _HLA_allele_sets, __asCapital=True, __addDummyMarker=Fals
 
             __ped_info__ = '\t'.join(t_line[:6])
             __genomic_info__ = '\t'.join([
-                PrintGenotypes4(t_line[2 * i + 6], t_line[2 * i + 7], _HLA_allele_sets[HLA_names[i]], __asCapital=__asCapital, __previous_version=__previous_version)
+                PrintGenotypes4(t_line[2 * i + 6], t_line[2 * i + 7], _HLA_allele_sets[HLA_names[i]],
+                                __asSmallLetter=__asSmallLetter, __previous_version=__previous_version)
                 for i in t_iterator if len(_HLA_allele_sets[HLA_names[i]]) > 0
             ])
 
@@ -455,6 +452,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-
-    encodeHLA(args.chped, args.o, args.hg,
-              __asCapital=(not args.asSmallLetter), __previous_version=args.previous_version, __addDummyMarker=args.addDummyMarker)
+    encodeHLA(args.chped, args.o, args.hg, __asSmallLetter=(not args.asSmallLetter),
+              __addDummyMarker=args.addDummyMarker, __previous_version=args.previous_version)
