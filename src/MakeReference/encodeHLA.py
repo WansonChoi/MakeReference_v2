@@ -226,7 +226,7 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asSmallLetter=True, __addDummyMarker=
         map_POS = [str(genepos_hg[_hg][HLA_names[i]]) for i in range(0, len(HLA_names)) for z in range(0, len(HLA_allele_sets[HLA_names[i]]))]
         # print(map_POS)
 
-        with open(_OUTPUT + ".map", 'w') as f_HLA_map:
+        with open(_OUTPUT + ".HLA.map", 'w') as f_HLA_map:
             f_HLA_map.writelines(('\t'.join(["6", map_LABELS[i], "0", map_POS[i]]) + "\n" for i in range(0, len(map_LABELS))))
 
             if __addDummyMarker:
@@ -236,14 +236,14 @@ def encodeHLA(_CHPED, _OUTPUT, _hg="18", __asSmallLetter=True, __addDummyMarker=
 
         ### Making a new *.HLA.ped file.
 
-        with open(_OUTPUT + ".ped", 'w') as f_HLA_ped:
+        with open(_OUTPUT + ".HLA.ped", 'w') as f_HLA_ped:
             f_HLA_ped.writelines(
                 MakeHLAPed(_CHPED, HLA_allele_sets, __asSmallLetter=__asSmallLetter, __addDummyMarker=__addDummyMarker,
                            __previous_version=__previous_version))
 
 
 
-    return [_OUTPUT+".ped", _OUTPUT+".map"]
+    return [_OUTPUT+".HLA.ped", _OUTPUT+".HLA.map"]
 
 
 

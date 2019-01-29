@@ -171,7 +171,7 @@ def HLAtoSequences(_chped, _dictionary, _type, _out, __previous_version=False, _
 
 
 def GenerateLines(_chped, _type, _dict_seq, _seq_length, _dict_ins, _haveIns,
-                  __previous_version=True, __asLump=False):
+                  __previous_version=False, __asLump=False):
 
     with open(_chped, "r") as f:
 
@@ -207,7 +207,7 @@ def GenerateLines(_chped, _type, _dict_seq, _seq_length, _dict_ins, _haveIns,
 def BringSequence2(_HLA_allele1, _HLA_allele2, _type, _hla,
                    _dict_seq, _seq_length,
                    _dict_ins, _haveIns,
-                   __previous_version = True,
+                   __previous_version = False,
                    __asLump=False):
 
 
