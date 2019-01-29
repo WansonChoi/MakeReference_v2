@@ -25,7 +25,7 @@ std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__
 #                   _mem = "2000m"):
 def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
                   _dictionary_AA, _dictionary_SNPS,
-                  _previous_version=True, _hg = "18", _mem = "2000m",
+                  _previous_version=False, _hg = "19", _mem = "2000m",
                   _p_depedency="./dependency"):
 
     """
@@ -86,10 +86,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     ### Other Software.
 
-    _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink_linux")
+    _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
     _p_beagle = os.path.join(_p_depedency, "beagle.jar")
     _p_linkage2beagle = os.path.join(_p_depedency, "linkage2beagle.jar")
-    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf.jar")
+    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf")
 
     if not os.path.exists(_p_plink):
         print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_depedency))
@@ -188,10 +188,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     SNP_DATA2 = os.path.join(INTERMEDIATE_PATH, os.path.basename(SNP_DATA)) # for each output directory
 
 
-    plink = ' '.join([_p_plink, "--noweb", "--silent"])
-    beagle = ' '.join(["java", "-Xmx", _mem, "-jar", _p_beagle])
+    plink = ' '.join([_p_plink, "--allow-no-sex","--silent"])
+    beagle = ''.join(["java", " -Xmx", _mem, " -Xss5M -jar ", _p_beagle])
     linkage2beagle = ''.join(["java ", "-Xmx", _mem, " -jar", _p_linkage2beagle])
-
+    beagle2vcf = _p_beagle2vcf
 
 
     ########## <Flags for Code Block> ##########
@@ -234,7 +234,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print("\n[1] Generating amino acid sequences from HLA types.")
 
         if not _previous_version:
-            HLAtoSequences(HLA_DATA, _dictionary_AA, "AA", _out=OUTPUT)
+            HLAtoSequences(HLA_DATA, _dictionary_AA_seq, "AA", _out=OUTPUT)
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA, "AA", ">", OUTPUT+".AA.ped"])
             print(command)
@@ -301,7 +301,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print("\n[4] Generating DNA sequences from HLA types.")
 
         if not _previous_version:
-            HLAtoSequences(HLA_DATA, _dictionary_SNPS, "SNPS", OUTPUT)
+            HLAtoSequences(HLA_DATA, _dictionary_SNPS_seq, "SNPS", OUTPUT)
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_SNPS, "SNPS", ">", OUTPUT+".SNPS.ped"])
             print(command)
@@ -372,7 +372,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
             rm remove.snps.*
         endif
         """
-
+        SNP_DATA = _INPUT_DATA
+        _INPUT_DATA_prefix = Path(_INPUT_DATA).name
         command = ' '.join([plink, "--bfile", SNP_DATA, "--filter-founders", "--mind 0.3", "--alleleACGT", "--make-bed", "--out", os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix+'.FOUNDERS')])
         print(command)
         os.system(command)
@@ -404,7 +405,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         os.system(command)
 
 
-        command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--allow-no-sex", "--exclude", os.path.join(INTERMEDIATE_PATH, "all.remove.snps"), "--make-bed", "--out", SNP_DATA2+'.FOUNDERS.QC'])
+        command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--exclude", os.path.join(INTERMEDIATE_PATH, "all.remove.snps"), "--make-bed", "--out", SNP_DATA2+'.FOUNDERS.QC'])
         print(command)
         os.system(command)
 
@@ -562,7 +563,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         command = ' '.join([plink, "--bfile", OUTPUT, "--recode --transpose --out", OUTPUT])
         #command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.map', ">", OUTPUT+'.dat'])
         #print(command)
-        #os.system(command)
+        os.system(command)
         #command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.ped', ">", OUTPUT+'.nopheno.ped'])
         print(command)
         os.system(command)
@@ -570,7 +571,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print("\n[9] Converting to beagle format.")
 
         #command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
-        command = ' '.join([beagle2vcf, "-fnmarker", OUTPUT,".markers -fnfam", OUTPUT,".fam -fngtype", OUTPUT,".tped -fnout", OUTPUT,".vcf"])
+        command = ''.join([beagle2vcf, " -fnmarker ", OUTPUT,".markers -fnfam ", OUTPUT,".fam -fngtype ", OUTPUT,".tped -fnout ", OUTPUT,".vcf"])
 
         print(command)
         os.system(command)
@@ -591,13 +592,13 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
 
         #new beagle (>v4), assuming 8 threads and 10 interations
-        command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 missing=0 verbose=true lowmem=true", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
+        command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bgl', ">>", OUTPUT+'.bgl.log'])
         print(command)
         os.system(command)
 
 
         #converting back to Beagle v3
-        ```
+        """
         echo "[$i] Converting vcf output to Beagle v3 phased haplotype files."; @ i++
 
         vcf2phased -gprobs_opt 2 -fnvcf $OUTPUT.bgl.vcf -fnfam $OUTPUT.fam -fnmarker $OUTPUT.markers -fnphased $OUTPUT.bgl.phased
@@ -606,7 +607,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         echo "[$i] Reverting hacked allele identities in *.bgl.vcf file back to those used in reference panel."; @ i++
 
         revert_alleles -script_opt 2 -fnvcf $OUTPUT.bgl.vcf -fnref $OUTPUT.bim
-        ```
+        """
 
 
     if CLEANUP:
@@ -678,7 +679,7 @@ if __name__ == "__main__" :
 
     parser.add_argument("-i", help="\nInput Data file prefix(.bed/.bim/.fam)\n\n", required=True)
     parser.add_argument("-ped", help="\nHLA Type Data(.ped)\n\n", required=True)
-    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19)\n\n", choices=["18", "19", "38"], metavar="hg", default="18")
+    parser.add_argument("-hg", help="\nHuman Genome version(ex. 18, 19)\n\n", choices=["18", "19", "38"], metavar="hg", default="19")
     parser.add_argument("-mem", help="\nMemory requried for beagle(ex. 12g).\n\n", default="2g")
     parser.add_argument("-o", help="\nOutput file prefix\n\n", required=True)
 
