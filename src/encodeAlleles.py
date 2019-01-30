@@ -11,6 +11,11 @@ def encodeAllele(*args, **kwargs):
     _tped, _out = args
     _function_switch = "encoding" if bool(kwargs["_encode"]) else "decoding"
 
+
+    p = re.compile(r'\.tped$')
+    _out = _out if not p.search(_out) else re.sub(p, '', _out)
+
+
     print("\n<Argument Checking>")
     print("_tped : {}".format(_tped))
     print("_out : {}".format(_out))
@@ -33,19 +38,19 @@ def encodeAllele(*args, **kwargs):
 
         ### Main encoding
         print("Processing ENcoding *.tped file.")
-        with open(_out + ".tped", 'w') as f_out:
+        with open(_out + ".aENCODED.tped", 'w') as f_out:
             f_out.writelines(EncodeAllele(_tped, __EncodeTable__, _sep=' '))
 
 
         ### Generate Decoding Table.
         print("Generating *.emap file.")
-        with open(_out + ".emap", 'w') as f_dmap:
+        with open(_out + ".aENCODED.emap", 'w') as f_dmap:
             f_dmap.writelines((' : '.join([k, str(v)])+"\n" for k, v in __EncodeTable__.items()))
 
 
         print("\n<Result(s)>")
-        print("(1) Encoded *.tped file : {}".format(_out + ".tped"))
-        print("(2) Encoding rule table : {}".format(_out + ".emap"))
+        print("(1) Encoded *.tped file : {}".format(_out + ".aENCODED.tped"))
+        print("(2) Encoding rule table : {}".format(_out + ".aENCODED.emap"))
 
 
 
@@ -74,13 +79,13 @@ def encodeAllele(*args, **kwargs):
 
         ### Main Decoding
         print("Processing decoding *.tped file.")
-        with open(_out + ".tped", 'w') as f_out:
+        with open(_out + ".aDECODED.tped", 'w') as f_out:
             f_out.writelines(DecodeAllele(_tped, __DecodeTable__, _sep=' '))
 
 
 
         print("\n<Result(s)>")
-        print("Decoded *.tped file : {}".format(_out + ".tped"))
+        print("Decoded *.tped file : {}".format(_out + ".aDECODED.tped"))
 
 
 
@@ -257,7 +262,18 @@ if __name__ == "__main__" :
                                      description=textwrap.dedent('''\
     #################################################################################################
 
-        encodeAllele.py
+        encodeAllele.py        
+        
+        - Glue module to handle compatibility issues related to beagle4.x
+        - In beagle4.x(> v3.x.x), 
+            (1) No other allele characters execpt 'A', 'C', 'G', 'T' and 'N' are allowed,
+            (2) No same genomic position is allowed to each markers.
+        - In beagle v3.x.x, above two issues weren't dealt with at all, which are the reasons why
+            S. Jia and B. Han chose beagle(v3.x.x) as main engine for 'MakeReference' and 'SNP2HLA'.
+        - By the way, This module solves the first one in the above 2 issues by encoding {'P', 'A'},
+            {'S', 'L'} or other allele combinations into the {'A', 'T'}.
+        - The table containing encoding rules are generated with encoding job 
+            so that decoding them back to original values can be done.
 
 
     #################################################################################################
