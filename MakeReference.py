@@ -186,12 +186,12 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     ########## <Flags for Code Block> ##########
 
-    ENCODE_AA = 0
-    ENCODE_HLA = 0
+    ENCODE_AA = 1
+    ENCODE_HLA = 1
     ENCODE_SNPS = 1
 
-    EXTRACT_FOUNDERS = 0
-    MERGE = 0
+    EXTRACT_FOUNDERS = 1
+    MERGE = 1
     QC = 0
 
     PREPARE = 0
@@ -367,12 +367,11 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         """
         if ($EXTRACT_FOUNDERS) then
             echo "[$i] Extracting founders."; @ i++
-            # founder의 정의가 이게 맞는건 아니겠지만, 아래 plink명령어를 거치고 나오는 founder라는 애들은 모두 엄마,아빠 ID정보가 없는 애들임.
             plink --bfile $SNP_DATA --filter-founders --mind 0.3 --alleleACGT --make-bed --out $SNP_DATA.FOUNDERS
 
             # Initial QC on Reference SNP panel
-            plink --bfile $SNP_DATA.FOUNDERS --hardy        --out $SNP_DATA.FOUNDERS.hardy  # 진짜 92명에 대해 position별로 HWE test한 결과
-            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   # 실제 --freq 옵션이 allele frequency계산해주는 옵션임.
+            plink --bfile $SNP_DATA.FOUNDERS --hardy        --out $SNP_DATA.FOUNDERS.hardy  
+            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   
             plink --bfile $SNP_DATA.FOUNDERS --missing      --out $SNP_DATA.FOUNDERS.missing
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.hardy.hwe      | awk ' $9 < 0.000001 { print $2 }' | sort -u > remove.snps.hardy
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.freq.frq       | awk ' $5 < 0.01 { print $2 } '             > remove.snps.freq
@@ -390,61 +389,69 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
             rm remove.snps.*
         endif
         """
-        SNP_DATA = _INPUT_DATA
-        _INPUT_DATA_prefix = Path(_INPUT_DATA).name
-        command = ' '.join([plink, "--bfile", SNP_DATA, "--filter-founders", "--mind 0.3", "--alleleACGT", "--make-bed", "--out", os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix+'.FOUNDERS')])
-        print(command)
+
+        command = ' '.join([plink, "--bfile", SNP_DATA, "--filter-founders", "--mind 0.3", "--alleleACGT", "--make-bed", "--out", SNP_DATA2+'.FOUNDERS'])
+        # print(command)
         os.system(command)
 
-        # SNP_DATA2 = os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix)
 
         # Initial QC on Reference SNP panel
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--hardy", "--out", SNP_DATA2+'.FOUNDERS.hardy'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--freq", "--out", SNP_DATA2+'.FOUNDERS.freq'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--missing", "--out", SNP_DATA2+'.FOUNDERS.missing'])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.hardy.hwe', "|", "awk", "' $9 < 0.000001 { print $2 }'", "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.hardy")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.freq.frq', "|", "awk", "' $5 < 0.01 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.freq")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.missing.lmiss', "|", "awk", "' $5 > 0.05 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.missing")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["cat", os.path.join(INTERMEDIATE_PATH, "remove.snps.*"), "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "all.remove.snps")])
-        print(command)
+        # print(command)
         os.system(command)
 
 
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--exclude", os.path.join(INTERMEDIATE_PATH, "all.remove.snps"), "--make-bed", "--out", SNP_DATA2+'.FOUNDERS.QC'])
-        print(command)
+        # print(command)
         os.system(command)
 
         # Founders are identified here as individuals with "0"s in mother and father IDs in .fam file
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.HLA', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.HLA.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", OUTPUT+'.SNPS.CODED', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.SNPS.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", OUTPUT+'.AA.CODED', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.AA.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
 
 
-        command = ' '.join(["rm", os.path.join(INTERMEDIATE_PATH, "remove.snps.*")])
-        print(command)
-        os.system(command)
+        if not __save_intermediates:
+
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.{bed,bim,fam,log,nosex}"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.hardy.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.freq.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.missing.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "remove.snps.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "all.remove.snps"))
+
+            os.system("rm " + OUTPUT + ".HLA.{bed,bim,fam,log}")
+            os.system("rm " + OUTPUT + ".SNPS.CODED.{bed,bim,fam,log}")
+            os.system("rm " + OUTPUT + ".AA.CODED.{bed,bim,fam,log}")
+
 
 
 
@@ -468,29 +475,32 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         TMP_merged_list = os.path.join(INTERMEDIATE_PATH, "merge_list")
 
         command = ' '.join(["echo", OUTPUT+'.HLA.FOUNDERS.bed', OUTPUT+'.HLA.FOUNDERS.bim', OUTPUT+'.HLA.FOUNDERS.fam', ">", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["echo", OUTPUT+'.AA.FOUNDERS.bed', OUTPUT+'.AA.FOUNDERS.bim', OUTPUT+'.AA.FOUNDERS.fam', ">>", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["echo", OUTPUT+'.SNPS.FOUNDERS.bed', OUTPUT+'.SNPS.FOUNDERS.bim', OUTPUT+'.SNPS.FOUNDERS.fam', ">>", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS.QC', "--merge-list", TMP_merged_list, "--make-bed", "--out", OUTPUT+'.MERGED.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
 
 
-        rm_tlist = (OUTPUT+'.HLA.???', OUTPUT+'.AA.CODED.???', OUTPUT+'.SNPS.CODED.???', TMP_merged_list)
+        if not __save_intermediates:
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+            os.system("rm " + (OUTPUT + ".HLA.*"))
+            os.system("rm " + (OUTPUT + ".AA.*"))
+            os.system("rm " + (OUTPUT + ".SNPS.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.QC.*"))
+            os.system("rm " + TMP_merged_list)
+
 
 
 
