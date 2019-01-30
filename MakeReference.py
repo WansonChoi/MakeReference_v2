@@ -230,8 +230,8 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_AA_seq, "AA", _out=OUTPUT)
         else:
-            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA, "AA", ">", OUTPUT+".AA.ped"])
-            print(command)
+            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA_seq, "AA", ">", OUTPUT+".AA.ped"])
+            # print(command)
             os.system(command)
 
         os.system(' '.join(["cp", _dictionary_AA_map, OUTPUT + '.AA.map']))
@@ -246,26 +246,27 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
             encodeVariants(OUTPUT + '.AA.ped', OUTPUT + '.AA.map', OUTPUT + '.AA.CODED') # previously "enCODED".
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeVariants.pl"), OUTPUT+".AA.ped", OUTPUT+".AA.map", OUTPUT+".AA.CODED"])
-            print(command)
+            # print(command)
             os.system(command)
 
         # command for checking output from encodeVariant.py(.pl)
         command = ' '.join([plink, "--file", OUTPUT+'.AA.CODED', "--missing-genotype 0", "--make-bed", "--out", OUTPUT+'.AA.TMP'])
-        print(command)
+        # print(command)
         os.system(command)
 
+
+
+        """
+        In the original version of MakeReference which is created by Sherman Jia, "INS" is written in the markers for insertions.
+        In MakeReference_v2, "INDEL" is written for those markers.
+        """
+
         command = ' '.join(["awk", '\'{if ($5 == "0" || $5 == "x" || $6 == "x"){print $2}}\'', OUTPUT + '.AA.TMP.bim', "|", "grep -v {0}".format("INDEL" if not _previous_version else "INS"), "|", "cut -f2", ">", os.path.join(INTERMEDIATE_PATH, "to_remove")])
-
-        """
-        In previous framework originally created by Sherman Jia, Only insertions were dealt with as a marker "INS".
-        In the new version of Framework, marker label is "INDEL".
-        """
-
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.AA.TMP', "--exclude", os.path.join(INTERMEDIATE_PATH, "to_remove"), "--make-bed", "--out", OUTPUT+'.AA.CODED'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
@@ -308,7 +309,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_SNPS_seq, "SNPS", OUTPUT)
         else:
-            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_SNPS, "SNPS", ">", OUTPUT+".SNPS.ped"])
+            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA_seq, "SNPS", ">", OUTPUT+".SNPS.ped"])
             print(command)
             os.system(command)
 
