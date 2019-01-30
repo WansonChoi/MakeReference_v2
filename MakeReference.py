@@ -186,9 +186,9 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     ########## <Flags for Code Block> ##########
 
-    ENCODE_AA = 1
+    ENCODE_AA = 0
     ENCODE_HLA = 0
-    ENCODE_SNPS = 0
+    ENCODE_SNPS = 1
 
     EXTRACT_FOUNDERS = 0
     MERGE = 0
@@ -290,15 +290,20 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
             encodeHLA(HLA_DATA, OUTPUT, _hg)
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeHLA.pl"), HLA_DATA, OUTPUT+".HLA.map", ">", OUTPUT+".HLA.ped"])
-            print(command)
+            # print(command)
             os.system(command)
 
 
         command = ' '.join([plink, "--file", OUTPUT+'.HLA', "--make-bed", "--out", OUTPUT+'.HLA'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
+
+
+        if not __save_intermediates:
+            os.system("rm " + (OUTPUT + ".HLA.{ped,map}"))
+
 
 
 
@@ -309,12 +314,12 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_SNPS_seq, "SNPS", OUTPUT)
         else:
-            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA_seq, "SNPS", ">", OUTPUT+".SNPS.ped"])
-            print(command)
+            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_SNPS_seq, "SNPS", ">", OUTPUT+".SNPS.ped"])
+            # print(command)
             os.system(command)
 
         command = ' '.join(["cp", _dictionary_SNPS_map, OUTPUT+'.SNPS.map'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
@@ -326,30 +331,32 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
             encodeVariants(OUTPUT+'.SNPS.ped', OUTPUT+'.SNPS.map', OUTPUT+'.SNPS.CODED')
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeVariants.pl"), OUTPUT+".SNPS.ped", OUTPUT+".SNPS.map", OUTPUT+".SNPS.CODED"])
-            print(command)
+            # print(command)
             os.system(command)
 
 
         command = ' '.join([plink, "--file", OUTPUT+'.SNPS.CODED', "--missing-genotype 0", "--make-bed", "--out", OUTPUT+'.SNPS.TMP'])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["awk", '\'{if ($5 == "0" || $5 == "x" || $6 == "x"){print $2}}\'', OUTPUT +'.SNPS.TMP.bim', "|", "grep -v {0}".format("INDEL" if not _previous_version else "INS"), "|", "cut -f2", ">", os.path.join(INTERMEDIATE_PATH, "to_remove")])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.SNPS.TMP', "--exclude", os.path.join(INTERMEDIATE_PATH, "to_remove"), "--make-bed", "--out", OUTPUT+'.SNPS.CODED'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
 
 
-        rm_tlist = (OUTPUT+'.SNPS.TMP*', os.path.join(INTERMEDIATE_PATH, 'to_remove'), OUTPUT+'.SNPS.???')
+        if not __save_intermediates:
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+            os.system("rm " + (OUTPUT + ".SNPS.{ped,map}"))
+            os.system("rm " + (OUTPUT + ".SNPS.TMP.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "to_remove"))
+            os.system("rm " + (OUTPUT + ".SNPS.CODED.{ped,map}"))
+
 
 
 
