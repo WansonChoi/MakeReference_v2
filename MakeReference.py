@@ -12,21 +12,11 @@ std_ERROR_MAIN_PROCESS_NAME = "\n[%s::ERROR]: " % (os.path.basename(__file__))
 std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__))
 
 
-# def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
-#                   _p_plink='./dependency/plink_mac' if not bool(re.search(pattern="Linux", string=platform())) else './dependency/plink_linux',
-#                   _p_beagle='./dependency/beagle.jar',
-#                   _p_linkage2beagle='./dependency/linkage2beagle.jar',
-#                   _dictionary_AA_map='./data/MakeReference_old/HLA_DICTIONARY_AA.map',
-#                   _dictionary_AA='./data/MakeReference_old/HLA_DICTIONARY_AA.txt',
-#                   _dictionary_SNPS_map='./data/MakeReference_old/HLA_DICTIONARY_SNPS.map',
-#                   _dictionary_SNPS='./data/MakeReference_old/HLA_DICTIONARY_SNPS.txt',
-#                   _previous_version=False,
-#                   _hg = "19",
-#                   _mem = "2000m"):
-def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
+def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
                   _dictionary_AA, _dictionary_SNPS,
-                  _previous_version=False, _hg = "19", _mem = "2000m",
-                  _p_depedency="./dependency"):
+                  _previous_version=False, _hg="19",
+                  _mem="2000m", _p_depedency="./dependency",
+                  __save_intermediates=False):
 
     """
     """
@@ -170,11 +160,11 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     ########## <Core Variables> ##########
 
-    HLA_DATA = _HLA_ped
+    HLA_DATA = _hped
 
 
     ### Intermediate path.
-    OUTPUT = _OUTPUT_Prefix if not _OUTPUT_Prefix.endswith('/') else _OUTPUT_Prefix.rstrip('/')
+    OUTPUT = _OUTPUT if not _OUTPUT.endswith('/') else _OUTPUT.rstrip('/')
     if bool(os.path.dirname(OUTPUT)):
         INTERMEDIATE_PATH = os.path.dirname(OUTPUT)
         os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
@@ -189,21 +179,23 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
 
     plink = ' '.join([_p_plink, "--allow-no-sex","--silent"])
-    beagle = ''.join(["java", " -Xmx", _mem, " -Xss5M -jar ", _p_beagle])
-    linkage2beagle = ''.join(["java ", "-Xmx", _mem, " -jar", _p_linkage2beagle])
-    beagle2vcf = _p_beagle2vcf
+    beagle = ' '.join(["java", " -Xmx"+_mem, "-Xss5M", "-jar", _p_beagle])
+    linkage2beagle = ' '.join(["java", "-Xmx"+_mem, "-jar", _p_linkage2beagle])
+    beagle2vcf = ' '.join(["java", "-Xmx"+_mem, "-jar", _p_beagle2vcf])
 
 
     ########## <Flags for Code Block> ##########
 
     ENCODE_AA = 1
-    ENCODE_HLA = 1
-    ENCODE_SNPS = 1
-    EXTRACT_FOUNDERS = 1
-    MERGE = 1
-    QC = 1
-    PREPARE = 1
-    PHASE = 1
+    ENCODE_HLA = 0
+    ENCODE_SNPS = 0
+
+    EXTRACT_FOUNDERS = 0
+    MERGE = 0
+    QC = 0
+
+    PREPARE = 0
+    PHASE = 0
     CLEANUP = 0 # set to zero for time being
 
 
@@ -211,6 +203,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     ########## <Making Reference Panel> ##########
 
     print(std_MAIN_PROCESS_NAME + "Making Reference Panel for \"{0}\"".format(OUTPUT))
+
+    index = 1
 
     if ENCODE_AA:
 
@@ -231,7 +225,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         # rm $OUTPUT.AA.???
         '''
 
-        print("\n[1] Generating amino acid sequences from HLA types.")
+        print("[{}] Generating amino acid sequences from HLA types.".format(index))
 
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_AA_seq, "AA", _out=OUTPUT)
@@ -242,7 +236,11 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
         os.system(' '.join(["cp", _dictionary_AA_map, OUTPUT + '.AA.map']))
 
-        print("\n[2] Encoding amino acids positions.")
+        index += 1
+
+
+
+        print("[{}] Encoding amino acids positions.".format(index))
 
         if not _previous_version:
             encodeVariants(OUTPUT + '.AA.ped', OUTPUT + '.AA.map', OUTPUT + '.AA.CODED') # previously "enCODED".
@@ -270,17 +268,22 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
-        rm_tlist = (OUTPUT+'.AA.TMP*', os.path.join(INTERMEDIATE_PATH, "to_remove"), OUTPUT+'.AA.???')
+        index += 1
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+
+        if not __save_intermediates:
+
+            os.system("rm " + (OUTPUT + ".AA.{ped,map}"))
+            os.system("rm " + (OUTPUT + ".AA.TMP.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "to_remove"))
+            os.system("rm " + OUTPUT + ".AA.CODED.{ped,map}")
+
 
 
 
     if ENCODE_HLA:
 
-        print("\n[3] Encoding HLA alleles.")
+        print("[{}] Encoding HLA alleles.".format(index))
 
         if not _previous_version:
             encodeHLA(HLA_DATA, OUTPUT, _hg)
@@ -294,11 +297,13 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
+        index += 1
+
 
 
     if ENCODE_SNPS:
 
-        print("\n[4] Generating DNA sequences from HLA types.")
+        print("[{}] Generating DNA sequences from HLA types.".format(index))
 
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_SNPS_seq, "SNPS", OUTPUT)
@@ -311,7 +316,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
-        print("\n[5] Encoding SNP positions.")
+        index += 1
+
+
+        print("[{}] Encoding SNP positions.".format(index))
 
         if not _previous_version:
             encodeVariants(OUTPUT+'.SNPS.ped', OUTPUT+'.SNPS.map', OUTPUT+'.SNPS.CODED')
@@ -333,6 +341,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
+        index += 1
+
 
         rm_tlist = (OUTPUT+'.SNPS.TMP*', os.path.join(INTERMEDIATE_PATH, 'to_remove'), OUTPUT+'.SNPS.???')
 
@@ -344,7 +354,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     if EXTRACT_FOUNDERS:
 
-        print("\n[5] Encoding SNP positions.")
+        print("[{}] Encoding SNP positions.".format(index))
 
         """
         if ($EXTRACT_FOUNDERS) then
@@ -421,6 +431,9 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
+        index += 1
+
+
         command = ' '.join(["rm", os.path.join(INTERMEDIATE_PATH, "remove.snps.*")])
         print(command)
         os.system(command)
@@ -429,7 +442,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     if MERGE:
 
-        print("\n[6] Merging SNP, HLA, and amino acid datasets.")
+        print("[{}] Merging SNP, HLA, and amino acid datasets.".format(index))
 
         """
         echo "[$i] Merging SNP, HLA, and amino acid datasets.";  @ i++
@@ -462,6 +475,9 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
+        index += 1
+
+
         rm_tlist = (OUTPUT+'.HLA.???', OUTPUT+'.AA.CODED.???', OUTPUT+'.SNPS.CODED.???', TMP_merged_list)
 
         for i in rm_tlist:
@@ -472,7 +488,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     if QC:
 
-        print("\n[7] Performing quality control.")
+        print("[{}] Performing quality control.".format(index))
 
         """
         plink --bfile $OUTPUT.MERGED.FOUNDERS --freq --out $OUTPUT.MERGED.FOUNDERS.FRQ
@@ -515,6 +531,9 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
+        index += 1
+
+
         rm_tlist = (SNP_DATA2+'.FOUNDERS.*', OUTPUT+'.MERGED.FOUNDERS.*', OUTPUT+'.*.FOUNDERS.???', TMP_allele_order, TMP_all_remove_snps)
 
         for i in rm_tlist:
@@ -552,7 +571,19 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
         """
 
-        print("\n[8] Preparing files for Beagle.")
+        """
+        [2019. 01. 30.]
+        (1) Encode genomic position
+        (2) make tped
+        (3) Encode alleles
+        (4) makebed
+        (5) *.markers
+        (5.5) recode to ped, map file
+        (6) *.dat and *.nopheno.ped => .bgl (by linkage2beagle.jar)
+        (7) *.vcf (by beagle2vcf.jar)
+        """
+
+        print("[{}] Preparing files for Beagle.".format(index))
 
         command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bim', ">", OUTPUT+'.markers'])
         print(command)
@@ -568,7 +599,12 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         print(command)
         os.system(command)
 
-        print("\n[9] Converting to beagle format.")
+
+        index += 1
+
+
+
+        print("[{}] Converting to beagle format.".format(index))
 
         #command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
         command = ''.join([beagle2vcf, " -fnmarker ", OUTPUT,".markers -fnfam ", OUTPUT,".fam -fngtype ", OUTPUT,".tped -fnout ", OUTPUT,".vcf"])
@@ -577,17 +613,17 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         os.system(command)
 
 
+        index += 1
+
+
 
     if PHASE:
-
-        # Put this part postponed. (2017.11.29. by B. Han.)
-        # Anyway introduced phasing by beagle. (2018. 7. 16.)
 
         '''
         beagle unphased=$OUTPUT.bgl nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000 log=$OUTPUT.phasing >> $OUTPUT.bgl.log
 
         '''
-        print("\n[10] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).")
+        print("[{}] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).".format(index))
 
         #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
 
@@ -595,6 +631,9 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bgl', ">>", OUTPUT+'.bgl.log'])
         print(command)
         os.system(command)
+
+
+        index += 1
 
 
         #converting back to Beagle v3
@@ -612,7 +651,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     if CLEANUP:
 
-        print("\n[11] Removing unnecessary files.")
+        print("[{}] Removing unnecessary files.".format(index))
         '''
         rm $OUTPUT.nopheno.ped
         rm $OUTPUT.bgl.gprobs
@@ -631,7 +670,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
             os.system("rm " + OUTPUT + i)
 
 
-    print("\n[12] Done!")
+        index += 1
+
+
+    print("[{}] Done!".format(index))
 
 
 
@@ -773,6 +815,5 @@ if __name__ == "__main__" :
 
 
     # Implementing Main Function.
-    MakeReference(_INPUT_DATA=args.i, _HLA_ped=args.ped, _OUTPUT_Prefix=args.o,
-                  _dictionary_AA=args.dict_AA, _dictionary_SNPS=args.dict_SNPS,
-                  _previous_version=args.previous_version, _hg=args.hg, _mem=args.mem)
+    MakeReference(_INPUT_DATA=args.i, _hped=args.ped, _OUTPUT=args.o, _dictionary_AA=args.dict_AA,
+                  _dictionary_SNPS=args.dict_SNPS, _previous_version=args.previous_version, _hg=args.hg, _mem=args.mem)
