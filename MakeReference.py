@@ -190,16 +190,16 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     ########## <Flags for Code Block> ##########
 
-    ENCODE_AA = 0
-    ENCODE_HLA = 0
-    ENCODE_SNPS = 0
+    ENCODE_AA = 1
+    ENCODE_HLA = 1
+    ENCODE_SNPS = 1
 
-    EXTRACT_FOUNDERS = 0
-    MERGE = 0
-    QC = 0
+    EXTRACT_FOUNDERS = 1
+    MERGE = 1
+    QC = 1
 
     PREPARE = 1
-    PHASE = 0
+    PHASE = 1
     CLEANUP = 0 # set to zero for time being
 
 
@@ -643,8 +643,10 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         os.system(command)
 
 
-        os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
-        os.system("rm " + OUTPUT+".pENCODED.aENCODED.tped")
+        if not __save_intermediates:
+
+            os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
+            os.system("rm " + OUTPUT+".pENCODED.aENCODED.tped")
 
 
         index += 1
@@ -690,8 +692,9 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
 
 
-        os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
-        os.system("rm " + OUTPUT+".bglv4.{bgl,bgl.log,markers,vcf.gz}")
+        if not __save_intermediates:
+
+            os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
 
 
 
@@ -712,12 +715,19 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
 
         #new beagle (>v4), assuming 8 threads and 10 interations
-        command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bgl', ">>", OUTPUT+'.bgl.log'])
-        print(command)
+        command= ' '.join([beagle, "gt="+OUTPUT+'.bglv4.vcf.gz', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bglv4.bgl.phased', ">>", OUTPUT+'.bglv4.bgl.log'])
+        # print(command)
         os.system(command)
 
 
         index += 1
+
+
+
+        if not __save_intermediates:
+            os.system("rm " + OUTPUT + ".bglv4.{bgl,bgl.log,markers,vcf.gz}")
+
+
 
 
         #converting back to Beagle v3
