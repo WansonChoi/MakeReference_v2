@@ -79,7 +79,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
     _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
     _p_beagle = os.path.join(_p_depedency, "beagle.jar")
     _p_linkage2beagle = os.path.join(_p_depedency, "linkage2beagle.jar")
-    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf")
+    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf.jar")
 
     if not os.path.exists(_p_plink):
         print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_depedency))
@@ -162,6 +162,10 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     HLA_DATA = _hped
 
+    # Two variables for beagle4.1 compatibility issues.
+    __PositionMap__ = None
+    __AlleleMap__ = None
+
 
     ### Intermediate path.
     OUTPUT = _OUTPUT if not _OUTPUT.endswith('/') else _OUTPUT.rstrip('/')
@@ -186,15 +190,15 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     ########## <Flags for Code Block> ##########
 
-    ENCODE_AA = 1
-    ENCODE_HLA = 1
-    ENCODE_SNPS = 1
+    ENCODE_AA = 0
+    ENCODE_HLA = 0
+    ENCODE_SNPS = 0
 
-    EXTRACT_FOUNDERS = 1
-    MERGE = 1
+    EXTRACT_FOUNDERS = 0
+    MERGE = 0
     QC = 0
 
-    PREPARE = 0
+    PREPARE = 1
     PHASE = 0
     CLEANUP = 0 # set to zero for time being
 
@@ -530,33 +534,34 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         TMP_all_remove_snps = os.path.join(INTERMEDIATE_PATH, "all.remove.snps")
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--freq", "--out", OUTPUT+'.MERGED.FOUNDERS.FRQ'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1 && ($5 < 0.0001 || $5 > 0.9999)){print $2}}'", OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_all_remove_snps])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", '\'{if (NR > 1){if (($3 == "A" && $4 == "P") || ($4 == "A" && $3 == "P")){print $2 "\tP"}}}\'', OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_allele_order])
-        print(command)
+        # print(command)
         os.system(command)
 
         # QC: Maximum per-SNP missing > 0.5, MAF > 0.1%
         command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])
-        print(command)
+        # print(command)
         os.system(command)
 
         # Calculate allele frequencies
         command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--freq", "--out", OUTPUT+'.FRQ'])
-        print(command)
+        # print(command)
         os.system(command)
 
         index += 1
 
 
-        rm_tlist = (SNP_DATA2+'.FOUNDERS.*', OUTPUT+'.MERGED.FOUNDERS.*', OUTPUT+'.*.FOUNDERS.???', TMP_allele_order, TMP_all_remove_snps)
+        if not __save_intermediates:
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+            os.system("rm " + (OUTPUT + ".MERGED.FOUNDERS.*"))
+            os.system("rm " + TMP_all_remove_snps)
+            os.system("rm " + TMP_allele_order)
+
 
 
 
@@ -584,13 +589,21 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
         echo "[$i] Converting to beagle format.";  @ i++
         beagle2vcf -fnmarker $OUTPUT.markers -fnfam $OUTPUT.fam -fngtype $OUTPUT.tped -fnout $OUTPUT.vcf
-
-        I will make this code block based on source given by Yang. for now.
-
+        
         """
 
         """
         [2019. 01. 30.]
+        
+        - In beagle4.x(> v3.x.x), 
+            (1) No other allele characters execpt 'A', 'C', 'G', 'T' and 'N' are allowed,
+            (2) No same genomic position is allowed to each markers.
+        - In beagle v3.x.x, above two issues weren't dealt with at all, which are the reasons why
+            S. Jia and B. Han chose beagle(v3.x.x) as main engine for 'MakeReference' and 'SNP2HLA'.
+        - However, as we are going to use beagle(v4.x), those issues must be solved. Two newly introduced modules 
+            (1) encodeAllels.py and (2) encodePosition.py will handle this.
+
+        
         (1) Encode genomic position
         (2) make tped
         (3) Encode alleles
@@ -601,37 +614,90 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         (7) *.vcf (by beagle2vcf.jar)
         """
 
-        print("[{}] Preparing files for Beagle.".format(index))
+        from src.encodeAlleles import encodeAllele
+        from src.encodePosition import encodePosition
 
-        command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bim', ">", OUTPUT+'.markers'])
-        print(command)
+        print("[{}] Encoding allele characters and genomic positions.".format(index))
+
+        ## Encoding genomic positions.
+        temp_bim, __PositionMap__ = encodePosition(OUTPUT, _encode=True, _decode=False, _map=None, _bim=OUTPUT+".bim", _pmap=None)
+
+        ## --recode transpose (*.tped. *.tfam) <- Plink1.9
+        command = ' '.join([plink, "--recode transpose", "--bed", OUTPUT+".bed", "--fam", OUTPUT+".fam", "--bim", temp_bim,
+                            "--keep-allele-order",  "--alleleACGT", "--out", OUTPUT+".pENCODED"])
+        # print(command)
         os.system(command)
-        command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT])
-        print(command)
+
+
+        ## Encoding allele characters.
+        temp_tped, __AlleleMap__ = encodeAllele(OUTPUT+".pENCODED.tped", OUTPUT+".pENCODED", _encode=True, _decode=False, _emap=None)
+
+
+        ## --make-bed
+        command = ' '.join([plink, "--make-bed",
+                            "--tped", temp_tped,
+                            "--tfam", OUTPUT+".pENCODED.tfam",
+                            "--out", OUTPUT + ".bglv4",
+                            "--keep-allele-order"])
+        # print(command)
         os.system(command)
-        command = ' '.join([plink, "--bfile", OUTPUT, "--recode --transpose --out", OUTPUT])
-        #command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.map', ">", OUTPUT+'.dat'])
+
+
+        os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
+        os.system("rm " + OUTPUT+".pENCODED.aENCODED.tped")
+
+
+        index += 1
+
+
+
+
+        print("[{}] Generating *.vcf file for Beagle(v4.1).".format(index))
+
+        ## Preparing files for Beagle which will be used in linkage2beagle.jar
+
+        # *.markers
+        command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])
+        # print(command)
+        os.system(command)
+
+        # --recode (*.ped, *.map) => for *.dat and *.nopheno.ped
+        command = ' '.join([plink, "--bfile", OUTPUT+".bglv4", "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT+".bglv4"])
+        # print(command)
+        os.system(command)
+
+        # *.dat
+        command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.bglv4.map', ">", OUTPUT+'.bglv4.dat'])
         #print(command)
         os.system(command)
-        #command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.ped', ">", OUTPUT+'.nopheno.ped'])
-        print(command)
+
+        # *.nopheno.ped
+        command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.bglv4.ped', ">", OUTPUT+'.bglv4.nopheno.ped'])
+        # print(command)
         os.system(command)
+
+
+        # *.bgl
+        command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.bglv4.nopheno.ped', "data="+OUTPUT+'.bglv4.dat', "beagle="+OUTPUT+'.bglv4.bgl', "standard=true", ">", OUTPUT+'.bglv4.bgl.log'])
+        # print(command)
+        os.system(command)
+
+
+        ## *.vcf
+        command = ' '.join([beagle2vcf, "6", OUTPUT+".bglv4.markers", OUTPUT+".bglv4.bgl", "0", "|", "gzip", ">", OUTPUT+".bglv4.vcf.gz"])
+        # print(command)
+        os.system(command)
+
+
+
+        os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
+        os.system("rm " + OUTPUT+".bglv4.{bgl,bgl.log,markers,vcf.gz}")
+
 
 
         index += 1
 
 
-
-        print("[{}] Converting to beagle format.".format(index))
-
-        #command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
-        command = ''.join([beagle2vcf, " -fnmarker ", OUTPUT,".markers -fnfam ", OUTPUT,".fam -fngtype ", OUTPUT,".tped -fnout ", OUTPUT,".vcf"])
-
-        print(command)
-        os.system(command)
-
-
-        index += 1
 
 
 
