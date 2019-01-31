@@ -11,15 +11,15 @@ def encodePosition(*args, **kwargs):
     f_isMap = bool(kwargs["_map"])
     _function_switch = "encoding" if bool(kwargs["_encode"]) else "decoding"
 
-    print("\n<Argument Checking>")
-
-    print("_input : {}".format(_input))
-    print("_out : {}".format(_out))
-    print("_switch : {}".format(_function_switch))
+    # print("\n<Argument Checking>")
+    #
+    # print("_input : {}".format(_input))
+    # print("_out : {}".format(_out))
+    # print("_switch : {}".format(_function_switch))
 
 
     if _function_switch == "encoding":
-        print("\n[Encoding]")
+        # print("\n[Encoding]")
 
         # Making a genomic position tree
         __GenPosTree__ = getGenDictionary(_input)
@@ -100,10 +100,12 @@ def encodePosition(*args, **kwargs):
 
 
         ### Results
-        print("\n<Results>")
-        print("(1) Genomic position encoded map file : {}".format(_out+".pENCODED.{}".format("map" if f_isMap else "bim")))
-        print("(2) Position map table file(*.pmap) : {}".format(_out+".pENCODED.pmap"))
+        # print("\n<Results>")
+        # print("(1) Genomic position encoded map file : {}".format(_out+".pENCODED.{}".format("map" if f_isMap else "bim")))
+        # print("(2) Position map table file(*.pmap) : {}".format(_out+".pENCODED.pmap"))
 
+
+        return [_out+".pENCODED.{}".format("map" if f_isMap else "bim"), _out+".pENCODED.pmap"]
 
 
 
@@ -124,7 +126,6 @@ def encodePosition(*args, **kwargs):
 
 
 
-    return 0
 
 
 
@@ -248,5 +249,5 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     print(args)
 
-    encodePosition(args.o, _map=args.map, _bim=args.bim, _encode=args.encode, _decode=args.decode, _pmap=args.pmap)
+    encodePosition(args.o, _encode=args.encode, _decode=args.decode, _map=args.map, _bim=args.bim, _pmap=args.pmap)
 

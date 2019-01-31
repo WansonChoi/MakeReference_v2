@@ -16,19 +16,10 @@ def encodeAllele(*args, **kwargs):
     _out = _out if not p.search(_out) else re.sub(p, '', _out)
 
 
-    print("\n<Argument Checking>")
-    print("_tped : {}".format(_tped))
-    print("_out : {}".format(_out))
-    print("_switch : {}".format(_function_switch))
-
-
-    # with open(_out, 'w') as f_out:
-    #     f_out.writelines(ChangeChar(_tped, _allele_before, _allele_after))
-
 
     if _function_switch == "encoding":
 
-        print("\n[Encoding]")
+        # print("\n[Encoding]")
 
         __EncodeTable__ = getEncodeTable(_tped)
 
@@ -37,28 +28,29 @@ def encodeAllele(*args, **kwargs):
 
 
         ### Main encoding
-        print("Processing ENcoding *.tped file.")
+        # print("Processing ENcoding *.tped file.")
         with open(_out + ".aENCODED.tped", 'w') as f_out:
             f_out.writelines(EncodeAllele(_tped, __EncodeTable__, _sep=' '))
 
 
         ### Generate Decoding Table.
-        print("Generating *.emap file.")
+        # print("Generating *.emap file.")
         with open(_out + ".aENCODED.emap", 'w') as f_dmap:
             f_dmap.writelines((' : '.join([k, str(v)])+"\n" for k, v in __EncodeTable__.items()))
 
 
-        print("\n<Result(s)>")
-        print("(1) Encoded *.tped file : {}".format(_out + ".aENCODED.tped"))
-        print("(2) Encoding rule table : {}".format(_out + ".aENCODED.emap"))
+        # print("\n<Result(s)>")
+        # print("(1) Encoded *.tped file : {}".format(_out + ".aENCODED.tped"))
+        # print("(2) Encoding rule table : {}".format(_out + ".aENCODED.emap"))
 
 
+        return [_out + ".aENCODED.tped", _out + ".aENCODED.emap"]
 
 
 
     elif _function_switch == "decoding":
 
-        print("\n[Decoding]")
+        # print("\n[Decoding]")
 
         if not bool(kwargs["_emap"]):
             print("Error. The argument \"-emap\" must be given.\n")
@@ -66,11 +58,11 @@ def encodeAllele(*args, **kwargs):
         else:
             _emap = kwargs["_emap"]
 
-        print("_emap : {}".format(_emap))
+        # print("_emap : {}".format(_emap))
 
 
         ### Retrieving Factors
-        print("Getting DEcoding table.")
+        # print("Getting DEcoding table.")
         __DecodeTable__ = getDecodeTable(_emap)
 
         # for k, v in __DecodeTable__.items():
@@ -78,19 +70,18 @@ def encodeAllele(*args, **kwargs):
 
 
         ### Main Decoding
-        print("Processing decoding *.tped file.")
+        # print("Processing decoding *.tped file.")
         with open(_out + ".aDECODED.tped", 'w') as f_out:
             f_out.writelines(DecodeAllele(_tped, __DecodeTable__, _sep=' '))
 
 
 
-        print("\n<Result(s)>")
-        print("Decoded *.tped file : {}".format(_out + ".aDECODED.tped"))
+        # print("\n<Result(s)>")
+        # print("Decoded *.tped file : {}".format(_out + ".aDECODED.tped"))
 
 
 
-
-    return 0
+        return _out + ".aDECODED.tped"
 
 
 
@@ -320,6 +311,18 @@ if __name__ == "__main__" :
 
     args = parser.parse_args()
     print(args)
+
+
+
+
+    # Summary print
+    print("\n<Argument Checking>")
+    print("_tped : {}".format(args.tped))
+    print("_out : {}".format(args._out))
+    _function_switch = "encoding" if args.encode else "decoding"
+    print("_switch : {}".format(_function_switch))
+
+
 
     encodeAllele(args.tped, args.o, _encode=args.encode, _decode=args.decode, _emap=args.emap)
 
