@@ -22,7 +22,8 @@ def encodePosition(*args, **kwargs):
         # print("\n[Encoding]")
 
         # Making a genomic position tree
-        __GenPosTree__ = getGenDictionary(_input)
+        __GenPosTree__, __MarkerToPos__ = getGenDictionary(_input)
+
 
         # for k, v in __GenPosTree__.items():
         #     print("{} : {}".format(k, v))
@@ -31,81 +32,63 @@ def encodePosition(*args, **kwargs):
         """
         (1) Marker to Encoded genomic position mapping
         (2) Table for decoding (*.pmap file) => Marker to (encoded position to original position)
-        
+
         """
 
         ### Main Encoding
 
         # Initializaiton (a Marker to `None`)
 
-        __EncodeTable__ = {l[i]: None for l in __GenPosTree__.values() for i in range(0, len(l))}
-        __DecodeTable__ = {l[i]: None for l in __GenPosTree__.values() for i in range(0, len(l))}
 
+        __isOccupied__ = list(__MarkerToPos__.values())
 
-        Somewhere = 1000
-        offset = 0
+        count = 0
 
         for k, v in __GenPosTree__.items():
 
             t_position = k  # Genomic position
             t_markers = v # a list of markers which have same genomic position.
 
+
             if len(t_markers) > 1:
+
                 # print(t_markers)
+                # print(t_position)
+                #
+                # print("Offset marker : {}".format(t_markers[0]))
+                # print("Offset : {}".format(t_position))
 
-                for j in range(0, len(t_markers)):
+                offset = t_position + 1     # Excluding the 1st element
 
-                    # print("{} : {}".format(Somewhere+offset, t_markers[j]))
+                for j in range(1, len(t_markers)):
 
-                    __EncodeTable__[t_markers[j]] = str(Somewhere+offset)
-                    __DecodeTable__[t_markers[j]] = {t_position : str(Somewhere+offset)}
+                    while offset in __isOccupied__:
+                        offset += 1
 
-                    offset += 1
+                    __MarkerToPos__[t_markers[j]] = offset
+                    __isOccupied__.append(offset)
 
-            else:
 
-                __EncodeTable__[t_markers[0]] = str(t_position)
-
-        # # Result Checking
-        # count = 0
-        # for k, v in __EncodeTable__.items():
-        #     print("{} : {}".format(k, v))
-        #
-        #     count += 1
-        #     if count > 50 : break
-        # print("\n")
-        #
-        # count = 0
-        # for k, v in __DecodeTable__.items():
-        #     print("{} : {}".format(k, v))
-        #
-        #     count += 1
-        #     if count > 50 : break
-        # print("\n")
-
+            count += 1
+            # if count > 5 : break
 
 
         ### Writing outputs
 
         # (1) Genomic position encoded file (*.bglv4.map)
         with open(_out+".pENCODED.{}".format("map" if f_isMap else "bim"), 'w') as f_out:
-            f_out.writelines(WriteEncodedPos(_input, __EncodeTable__))
-
-
-        # (2) pmap file (*.pmap) => it will be used to decode
-        with open(_out+".pENCODED.pmap", 'w') as f_out:
-            f_out.writelines(("{} : {}\n".format(k, v) for k, v in __DecodeTable__.items()))
+            f_out.writelines(WriteEncodedPos(_input, __MarkerToPos__))
 
 
 
+        # ### Results
+        # # print("\n<Results>")
+        # # print("(1) Genomic position encoded map file : {}".format(_out+".pENCODED.{}".format("map" if f_isMap else "bim")))
+        # # print("(2) Position map table file(*.pmap) : {}".format(_out+".pENCODED.pmap"))
 
-        ### Results
-        # print("\n<Results>")
-        # print("(1) Genomic position encoded map file : {}".format(_out+".pENCODED.{}".format("map" if f_isMap else "bim")))
-        # print("(2) Position map table file(*.pmap) : {}".format(_out+".pENCODED.pmap"))
 
+        return _out+".pENCODED.{}".format("map" if f_isMap else "bim")
 
-        return [_out+".pENCODED.{}".format("map" if f_isMap else "bim"), _out+".pENCODED.pmap"]
 
 
 
@@ -132,21 +115,21 @@ def encodePosition(*args, **kwargs):
 
 def getGenDictionary(_input):
 
-    __GenPosTree__ = {}
-    l_gen_pos = []
+    __MarkerToPos__ = {}
     count = 0
 
-    # Initializing `__GenPosTree__`
+    # Initializing `__PosToMarkers__`
     with open(_input, 'r') as f_input:
         for l in f_input:
 
             line = re.split(r'\s+', l.rstrip('\n'))
-            l_gen_pos.append(line[3])
+
+            __MarkerToPos__[line[1]] = int(line[3])
 
             count += 1
             # if count > 5 : break
 
-    __GenPosTree__ = {item: [] for item in l_gen_pos}    # Initializing `__GenPosTree__` as null lists.
+    __PosToMarkers__ = {pos: [] for pos in __MarkerToPos__.values()}    # Initializing `__PosToMarkers__` as null lists.
 
 
     # Clustering Marker Labels based on genomic positions.
@@ -158,24 +141,24 @@ def getGenDictionary(_input):
             line = re.split(r'\s+', l.rstrip('\n'))
 
             t_marker = line[1]
-            t_genomic_position = line[3]
+            t_genomic_position = int(line[3])
 
             # print("Marker : {}".format(t_marker))
             # print("GenPos : {}".format(t_genomic_position))
-            # print("list : {}\n".format(__GenPosTree__[t_genomic_position]))
+            # print("list : {}\n".format(__PosToMarkers__[t_genomic_position]))
 
-            __GenPosTree__[t_genomic_position].append(t_marker)
+            __PosToMarkers__[t_genomic_position].append(t_marker)
 
 
             count += 1
             # if count > 5 : break
 
 
-    return __GenPosTree__
+    return __PosToMarkers__, __MarkerToPos__
 
 
 
-def WriteEncodedPos(_input, _Encode_Table, _sep='\t'):
+def WriteEncodedPos(_input, _MarkerToPos_, _sep='\t'):
 
     with open(_input, 'r') as f_input:
         for l in f_input:
@@ -184,7 +167,7 @@ def WriteEncodedPos(_input, _Encode_Table, _sep='\t'):
 
             t_marker = line[1]
 
-            yield _sep.join([line[0], t_marker, line[2], _Encode_Table[t_marker], _sep.join(line[4:])]) + "\n"
+            yield _sep.join([line[0], t_marker, line[2], str(_MarkerToPos_[t_marker]), _sep.join(line[4:])]) + "\n"
 
 
 # def WritePMAP(_)
@@ -232,10 +215,10 @@ if __name__ == "__main__":
     ##### <for Test> #####
 
     # Partial Test Data
-    args = parser.parse_args(["--encode",
-                              "-bim", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190130/20190129_Panel.bim",
-                              "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190130/20190129_Panel.bim"
-                              ])
+    # args = parser.parse_args(["--encode",
+    #                           "-bim", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190130/20190129_Panel.bim",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/tests/20190130/20190201_Panel.bim"
+    #                           ])
 
     # Test Data
     # args = parser.parse_args(["--decode",
@@ -246,7 +229,7 @@ if __name__ == "__main__":
 
     ##### <for Publication> #####
 
-    # args = parser.parse_args()
+    args = parser.parse_args()
     print(args)
 
     encodePosition(args.o, _encode=args.encode, _decode=args.decode, _map=args.map, _bim=args.bim, _pmap=args.pmap)
