@@ -39,12 +39,17 @@ def encodeAllele(*args, **kwargs):
             f_dmap.writelines((' : '.join([k, str(v)])+"\n" for k, v in __EncodeTable__.items()))
 
 
+        ### Generate *.refallele file. (for Plink1.9 "--a1-allele".)
+        with open(_out + ".aENCODED.ref", 'w') as f_ref:
+            f_ref.writelines(('\t'.join([k, v['P']])+"\n" for k, v in __EncodeTable__.items() if set(v.keys()) == {"P", "A"}))
+
+
         # print("\n<Result(s)>")
         # print("(1) Encoded *.tped file : {}".format(_out + ".aENCODED.tped"))
         # print("(2) Encoding rule table : {}".format(_out + ".aENCODED.emap"))
 
 
-        return [_out + ".aENCODED.tped", _out + ".aENCODED.emap"]
+        return [_out + ".aENCODED.tped", _out + ".aENCODED.emap", _out + ".aENCODED.ref"]
 
 
 
