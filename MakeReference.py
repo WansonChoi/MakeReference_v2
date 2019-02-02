@@ -162,8 +162,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     HLA_DATA = _hped
 
-    # Two variables for beagle4.1 compatibility issues.
-    __PositionMap__ = None
+    # New variables for beagle4.1 compatibility issues.
     __AlleleMap__ = None
 
 
@@ -544,7 +543,8 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         os.system(command)
 
         # QC: Maximum per-SNP missing > 0.5, MAF > 0.1%
-        command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])
+        # command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT]) # Plink 1.07
+        command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--a1-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])   # Plink 1.9
         # print(command)
         os.system(command)
 
@@ -620,7 +620,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         print("[{}] Encoding allele characters and genomic positions.".format(index))
 
         ## Encoding genomic positions.
-        temp_bim, __PositionMap__ = encodePosition(OUTPUT, _encode=True, _decode=False, _map=None, _bim=OUTPUT+".bim", _pmap=None)
+        temp_bim = encodePosition(OUTPUT, _encode=True, _decode=False, _map=None, _bim=OUTPUT+".bim", _pmap=None)
 
         ## --recode transpose (*.tped. *.tfam) <- Plink1.9
         command = ' '.join([plink, "--recode transpose", "--bed", OUTPUT+".bed", "--fam", OUTPUT+".fam", "--bim", temp_bim,
@@ -630,7 +630,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
 
         ## Encoding allele characters.
-        temp_tped, __AlleleMap__ = encodeAllele(OUTPUT+".pENCODED.tped", OUTPUT+".pENCODED", _encode=True, _decode=False, _emap=None)
+        temp_tped, __AlleleMap__, temp_ref = encodeAllele(OUTPUT+".pENCODED.tped", OUTPUT+".pENCODED", _encode=True, _decode=False, _emap=None)
 
 
         ## --make-bed
@@ -638,7 +638,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
                             "--tped", temp_tped,
                             "--tfam", OUTPUT+".pENCODED.tfam",
                             "--out", OUTPUT + ".bglv4",
-                            "--keep-allele-order"])
+                            "--a1-allele", temp_ref])
         # print(command)
         os.system(command)
 
@@ -646,7 +646,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         if not __save_intermediates:
 
             os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
-            os.system("rm " + OUTPUT+".pENCODED.aENCODED.tped")
+            os.system("rm " + OUTPUT+".pENCODED.aENCODED.{tped,ref}")
 
 
         index += 1
@@ -659,7 +659,8 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
         ## Preparing files for Beagle which will be used in linkage2beagle.jar
 
         # *.markers
-        command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])
+        # command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])     # plink1.07
+        command = ' '.join(["awk", '\'{print $2 " " $4 " " $6 " " $5}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])       # plink1.9
         # print(command)
         os.system(command)
 
@@ -692,9 +693,9 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
 
 
-        if not __save_intermediates:
-
-            os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
+        # if not __save_intermediates:
+        #
+        #     os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
 
 
 
