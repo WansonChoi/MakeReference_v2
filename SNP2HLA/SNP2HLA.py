@@ -13,8 +13,137 @@ std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__
 
 
 
-def SNP2HLA():
+def SNP2HLA(_input, _reference_panel, _out,
+            _mem = "2000m", _marker_window_size=1000, _tolerated_diff=.15,
+            _dependency="./"):
 
+
+
+    ### Optional Arguments check.
+
+    if not os.path.exists(_dependency):
+        print(std_ERROR_MAIN_PROCESS_NAME + "The path(folder) of depedency('{}') doesn't exist. Please check it again.".format(_dependency))
+        sys.exit()
+
+    p_Mb = re.compile(r'\d+m')
+    p_Gb = re.compile(r'\d+[gG]')
+
+    if p_Mb.match(_mem):
+        pass # No problem.
+    elif p_Gb.match(_mem):
+        _mem = re.sub(r'[gG]', '000m', _mem)
+    else:
+        print(std_ERROR_MAIN_PROCESS_NAME + "Given Java memory value('{}') has bizzare representation. Please check it again.".format(_mem))
+        sys.exit()
+
+
+
+    ### Check dependencies.
+
+    _plink = os.path.join(_dependency, "plink")         # Plink(v1.9)
+    _beagle = os.path.join(_dependency, "beagle.jar")   # Beagle(v4.1)
+    _linkage2beagle = os.path.join(_dependency, "linkage2beagle.jar")
+    _beagle2linkage = os.path.join(_dependency, "beagle2linkage.jar")
+    _merge_table = os.path.join("src/merge_tables.pl")
+    _parse_dosage = os.path.join("src/ParseDosage.csh")
+
+
+    if not os.path.exists(_plink):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare PLINK(v1.90) in 'dependency/' folder.")
+        sys.exit()
+    if not os.path.exists(_beagle):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare Beagle(v.4.1) in 'dependency/' folder.")
+        sys.exit()
+    if not os.path.exists(_linkage2beagle):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'linkage2beagle.jar' in 'dependency/' folder.")
+        sys.exit()
+    if not os.path.exists(_beagle2linkage):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'beagle2linkage.jar' in 'dependency/' folder.")
+        sys.exit()
+    if not os.path.exists(_merge_table):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'merge_tables.pl' in 'src/' folder.")
+        sys.exit()
+    if not os.path.exists(_parse_dosage):
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'ParseDosage.csh' in 'src/' folder.")
+        sys.exit()
+
+
+
+    ### Intermediate path.
+
+    OUTPUT = _out if not _out.endswith('/') else _out.rstrip('/')
+    if bool(os.path.dirname(OUTPUT)):
+        INTERMEDIATE_PATH = os.path.dirname(OUTPUT)
+        os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
+    else:
+        # If `os.path.dirname(OUTPUT)` doesn't exist, then it means the output of MakeReference should be genrated in current directory.
+        INTERMEDIATE_PATH = "./"
+
+
+    JAVATMP = _out+".javatmpdir"
+    os.system("mkdir -p " + JAVATMP)
+
+
+
+    ### Setting commands
+
+    PLINK = ' '.join([_plink, "--silent", "--allow-no-sex"]) # "--noweb" won't be included because it is Plink1.9
+    BEAGLE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _beagle])
+    LINKAGE2BEAGLE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _linkage2beagle])
+    BEAGLE2LINKAGE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _beagle2linkage])
+
+
+
+    ### Control Flags
+    EXTRACT_MHC = 1
+    FLIP = 0
+    CONVERT_IN = 0
+    IMPUTE = 0
+    CONVERT_OUT = 0
+    CLEANUP = 0
+
+
+    print("SNP2HLA: Performing HLA imputation for dataset {}".format(_input))
+    print("- Java memory = {}(Mb)".format(_mem))
+    print("- Beagle(v4.1) window size = \"{}\" markers".format(_marker_window_size))
+
+
+    index= 1
+    __MHC__ = _out+".MHC"
+
+
+    if EXTRACT_MHC:
+
+        print("[{}] Extracting SNPs from the MHC.".format(index)); index += 1
+
+
+
+    if FLIP:
+
+        print("[{}] Performing SNP quality control.".format(index)); index += 1
+
+
+    if CONVERT_IN:
+
+        print("[{}] Converting data to beagle format.".format(index)); index += 1
+
+
+    if IMPUTE:
+
+        print("[{}] Performing HLA imputation.".format(index)); index += 1
+
+
+    if CONVERT_OUT:
+
+        print("[{}] Converting posterior probabilities to Plink dosage format.".format(index)); index += 1
+
+
+
+        print("[{}] Converting imputation genotypes to Plink *.ped format.".format(index)); index += 1
+
+
+
+    print("Done\n")
 
     return 0
 
@@ -64,7 +193,7 @@ if __name__ == "__main__" :
 
     parser.add_argument("-h", "--help", help="\nShow this help message and exit\n\n", action='help')
 
-    parser.add_argument("-i", help="\nInput Data file prefix(.bed/.bim/.fam)\n\n", required=True)
+    parser.add_argument("-i", help="\nInput Plink data file prefix(.bed/.bim/.fam)\n\n", required=True)
     parser.add_argument("-o", help="\nOutput file prefix\n\n", required=True)
 
 
