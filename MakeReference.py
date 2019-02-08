@@ -2,7 +2,6 @@
 
 import os, sys, re
 import argparse, textwrap
-from pathlib import Path
 from platform import platform
 
 ########## < Core Global Variables > ##########
@@ -12,10 +11,9 @@ std_ERROR_MAIN_PROCESS_NAME = "\n[%s::ERROR]: " % (os.path.basename(__file__))
 std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__))
 
 
-def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
-                  _dictionary_AA, _dictionary_SNPS,
+def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
                   _previous_version=False, _hg="19",
-                  _mem="2000m", _p_depedency="./dependency",
+                  _mem="2000m", _p_dependency="./dependency",
                   __save_intermediates=False):
 
     """
@@ -76,22 +74,22 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
 
     ### Other Software.
 
-    _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
-    _p_beagle = os.path.join(_p_depedency, "beagle.jar")
-    _p_linkage2beagle = os.path.join(_p_depedency, "linkage2beagle.jar")
-    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf.jar")
+    _p_plink = os.path.join(_p_dependency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
+    _p_beagle = os.path.join(_p_dependency, "beagle.jar")
+    _p_linkage2beagle = os.path.join(_p_dependency, "linkage2beagle.jar")
+    _p_beagle2vcf = os.path.join(_p_dependency, "beagle2vcf.jar")
 
     if not os.path.exists(_p_plink):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_depedency))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_dependency))
         sys.exit()
     if not os.path.exists(_p_beagle):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'Beagle 4' (https://faculty.washington.edu/browning/beagle/b4_0.html#download) in '{}'\n".format(_p_depedency)) # Now we use beagle 4.
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'Beagle 4' (https://faculty.washington.edu/browning/beagle/b4_0.html#download) in '{}'\n".format(_p_dependency)) # Now we use beagle 4.
         sys.exit()
     if not os.path.exists(_p_linkage2beagle):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'linkage2beagle.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_depedency))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'linkage2beagle.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_dependency))
         sys.exit()
     if not os.path.exists(_p_beagle2vcf):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'beagle2vcf.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_depedency))
+        print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'beagle2vcf.jar' (http://faculty.washington.edu/browning/beagle_utilities/utilities.html) in '{0}'\n".format(_p_dependency))
         sys.exit()
 
 
