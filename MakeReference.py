@@ -12,21 +12,11 @@ std_ERROR_MAIN_PROCESS_NAME = "\n[%s::ERROR]: " % (os.path.basename(__file__))
 std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__))
 
 
-# def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
-#                   _p_plink='./dependency/plink_mac' if not bool(re.search(pattern="Linux", string=platform())) else './dependency/plink_linux',
-#                   _p_beagle='./dependency/beagle.jar',
-#                   _p_linkage2beagle='./dependency/linkage2beagle.jar',
-#                   _dictionary_AA_map='./data/MakeReference_old/HLA_DICTIONARY_AA.map',
-#                   _dictionary_AA='./data/MakeReference_old/HLA_DICTIONARY_AA.txt',
-#                   _dictionary_SNPS_map='./data/MakeReference_old/HLA_DICTIONARY_SNPS.map',
-#                   _dictionary_SNPS='./data/MakeReference_old/HLA_DICTIONARY_SNPS.txt',
-#                   _previous_version=False,
-#                   _hg = "19",
-#                   _mem = "2000m"):
-def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
+def MakeReference(_INPUT_DATA, _hped, _OUTPUT,
                   _dictionary_AA, _dictionary_SNPS,
-                  _previous_version=False, _hg = "19", _mem = "2000m",
-                  _p_depedency="./dependency"):
+                  _previous_version=False, _hg="19",
+                  _mem="2000m", _p_depedency="./dependency",
+                  __save_intermediates=False):
 
     """
     """
@@ -89,7 +79,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     _p_plink = os.path.join(_p_depedency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
     _p_beagle = os.path.join(_p_depedency, "beagle.jar")
     _p_linkage2beagle = os.path.join(_p_depedency, "linkage2beagle.jar")
-    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf")
+    _p_beagle2vcf = os.path.join(_p_depedency, "beagle2vcf.jar")
 
     if not os.path.exists(_p_plink):
         print(std_ERROR_MAIN_PROCESS_NAME + "Please Prepare 'PLINK' (http://pngu.mgh.harvard.edu/~purcell/plink/download.shtml) in '{}'\n".format(_p_depedency))
@@ -170,11 +160,14 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     ########## <Core Variables> ##########
 
-    HLA_DATA = _HLA_ped
+    HLA_DATA = _hped
+
+    # New variables for beagle4.1 compatibility issues.
+    __AlleleMap__ = None
 
 
     ### Intermediate path.
-    OUTPUT = _OUTPUT_Prefix if not _OUTPUT_Prefix.endswith('/') else _OUTPUT_Prefix.rstrip('/')
+    OUTPUT = _OUTPUT if not _OUTPUT.endswith('/') else _OUTPUT.rstrip('/')
     if bool(os.path.dirname(OUTPUT)):
         INTERMEDIATE_PATH = os.path.dirname(OUTPUT)
         os.makedirs(INTERMEDIATE_PATH, exist_ok=True)
@@ -189,9 +182,9 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
 
     plink = ' '.join([_p_plink, "--allow-no-sex","--silent"])
-    beagle = ''.join(["java", " -Xmx", _mem, " -Xss5M -jar ", _p_beagle])
-    linkage2beagle = ''.join(["java ", "-Xmx", _mem, " -jar", _p_linkage2beagle])
-    beagle2vcf = _p_beagle2vcf
+    beagle = ' '.join(["java", " -Xmx"+_mem, "-Xss5M", "-jar", _p_beagle])
+    linkage2beagle = ' '.join(["java", "-Xmx"+_mem, "-jar", _p_linkage2beagle])
+    beagle2vcf = ' '.join(["java", "-Xmx"+_mem, "-jar", _p_beagle2vcf])
 
 
     ########## <Flags for Code Block> ##########
@@ -199,9 +192,11 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     ENCODE_AA = 1
     ENCODE_HLA = 1
     ENCODE_SNPS = 1
+
     EXTRACT_FOUNDERS = 1
     MERGE = 1
     QC = 1
+
     PREPARE = 1
     PHASE = 1
     CLEANUP = 0 # set to zero for time being
@@ -211,6 +206,8 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
     ########## <Making Reference Panel> ##########
 
     print(std_MAIN_PROCESS_NAME + "Making Reference Panel for \"{0}\"".format(OUTPUT))
+
+    index = 1
 
     if ENCODE_AA:
 
@@ -231,130 +228,153 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         # rm $OUTPUT.AA.???
         '''
 
-        print("\n[1] Generating amino acid sequences from HLA types.")
+        print("[{}] Generating amino acid sequences from HLA types.".format(index))
 
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_AA_seq, "AA", _out=OUTPUT)
         else:
-            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA, "AA", ">", OUTPUT+".AA.ped"])
-            print(command)
+            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_AA_seq, "AA", ">", OUTPUT+".AA.ped"])
+            # print(command)
             os.system(command)
 
         os.system(' '.join(["cp", _dictionary_AA_map, OUTPUT + '.AA.map']))
 
-        print("\n[2] Encoding amino acids positions.")
+        index += 1
+
+
+
+        print("[{}] Encoding amino acids positions.".format(index))
 
         if not _previous_version:
             encodeVariants(OUTPUT + '.AA.ped', OUTPUT + '.AA.map', OUTPUT + '.AA.CODED') # previously "enCODED".
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeVariants.pl"), OUTPUT+".AA.ped", OUTPUT+".AA.map", OUTPUT+".AA.CODED"])
-            print(command)
+            # print(command)
             os.system(command)
 
         # command for checking output from encodeVariant.py(.pl)
         command = ' '.join([plink, "--file", OUTPUT+'.AA.CODED', "--missing-genotype 0", "--make-bed", "--out", OUTPUT+'.AA.TMP'])
-        print(command)
+        # print(command)
         os.system(command)
 
+
+
+        """
+        In the original version of MakeReference which is created by Sherman Jia, "INS" is written in the markers for insertions.
+        In MakeReference_v2, "INDEL" is written for those markers.
+        """
+
         command = ' '.join(["awk", '\'{if ($5 == "0" || $5 == "x" || $6 == "x"){print $2}}\'', OUTPUT + '.AA.TMP.bim', "|", "grep -v {0}".format("INDEL" if not _previous_version else "INS"), "|", "cut -f2", ">", os.path.join(INTERMEDIATE_PATH, "to_remove")])
-
-        """
-        In previous framework originally created by Sherman Jia, Only insertions were dealt with as a marker "INS".
-        In the new version of Framework, marker label is "INDEL".
-        """
-
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.AA.TMP', "--exclude", os.path.join(INTERMEDIATE_PATH, "to_remove"), "--make-bed", "--out", OUTPUT+'.AA.CODED'])
-        print(command)
+        # print(command)
         os.system(command)
 
-        rm_tlist = (OUTPUT+'.AA.TMP*', os.path.join(INTERMEDIATE_PATH, "to_remove"), OUTPUT+'.AA.???')
+        index += 1
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+
+        if not __save_intermediates:
+
+            os.system("rm " + (OUTPUT + ".AA.{ped,map}"))
+            os.system("rm " + (OUTPUT + ".AA.TMP.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "to_remove"))
+            os.system("rm " + OUTPUT + ".AA.CODED.{ped,map}")
+
 
 
 
     if ENCODE_HLA:
 
-        print("\n[3] Encoding HLA alleles.")
+        print("[{}] Encoding HLA alleles.".format(index))
 
         if not _previous_version:
             encodeHLA(HLA_DATA, OUTPUT, _hg)
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeHLA.pl"), HLA_DATA, OUTPUT+".HLA.map", ">", OUTPUT+".HLA.ped"])
-            print(command)
+            # print(command)
             os.system(command)
 
 
         command = ' '.join([plink, "--file", OUTPUT+'.HLA', "--make-bed", "--out", OUTPUT+'.HLA'])
-        print(command)
+        # print(command)
         os.system(command)
+
+        index += 1
+
+
+        if not __save_intermediates:
+            os.system("rm " + (OUTPUT + ".HLA.{ped,map}"))
+
 
 
 
     if ENCODE_SNPS:
 
-        print("\n[4] Generating DNA sequences from HLA types.")
+        print("[{}] Generating DNA sequences from HLA types.".format(index))
 
         if not _previous_version:
             HLAtoSequences(HLA_DATA, _dictionary_SNPS_seq, "SNPS", OUTPUT)
         else:
-            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_SNPS, "SNPS", ">", OUTPUT+".SNPS.ped"])
-            print(command)
+            command = ' '.join([os.path.join(p_src_MakeReferece, "HLAtoSequences.pl"), HLA_DATA, _dictionary_SNPS_seq, "SNPS", ">", OUTPUT+".SNPS.ped"])
+            # print(command)
             os.system(command)
 
         command = ' '.join(["cp", _dictionary_SNPS_map, OUTPUT+'.SNPS.map'])
-        print(command)
+        # print(command)
         os.system(command)
 
-        print("\n[5] Encoding SNP positions.")
+        index += 1
+
+
+        print("[{}] Encoding SNP positions.".format(index))
 
         if not _previous_version:
             encodeVariants(OUTPUT+'.SNPS.ped', OUTPUT+'.SNPS.map', OUTPUT+'.SNPS.CODED')
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeVariants.pl"), OUTPUT+".SNPS.ped", OUTPUT+".SNPS.map", OUTPUT+".SNPS.CODED"])
-            print(command)
+            # print(command)
             os.system(command)
 
 
         command = ' '.join([plink, "--file", OUTPUT+'.SNPS.CODED', "--missing-genotype 0", "--make-bed", "--out", OUTPUT+'.SNPS.TMP'])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["awk", '\'{if ($5 == "0" || $5 == "x" || $6 == "x"){print $2}}\'', OUTPUT +'.SNPS.TMP.bim', "|", "grep -v {0}".format("INDEL" if not _previous_version else "INS"), "|", "cut -f2", ">", os.path.join(INTERMEDIATE_PATH, "to_remove")])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.SNPS.TMP', "--exclude", os.path.join(INTERMEDIATE_PATH, "to_remove"), "--make-bed", "--out", OUTPUT+'.SNPS.CODED'])
-        print(command)
+        # print(command)
         os.system(command)
 
+        index += 1
 
-        rm_tlist = (OUTPUT+'.SNPS.TMP*', os.path.join(INTERMEDIATE_PATH, 'to_remove'), OUTPUT+'.SNPS.???')
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+        if not __save_intermediates:
+
+            os.system("rm " + (OUTPUT + ".SNPS.{ped,map}"))
+            os.system("rm " + (OUTPUT + ".SNPS.TMP.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "to_remove"))
+            os.system("rm " + (OUTPUT + ".SNPS.CODED.{ped,map}"))
+
 
 
 
     if EXTRACT_FOUNDERS:
 
-        print("\n[5] Encoding SNP positions.")
+        print("[{}] Encoding SNP positions.".format(index))
 
         """
         if ($EXTRACT_FOUNDERS) then
             echo "[$i] Extracting founders."; @ i++
-            # founder의 정의가 이게 맞는건 아니겠지만, 아래 plink명령어를 거치고 나오는 founder라는 애들은 모두 엄마,아빠 ID정보가 없는 애들임.
             plink --bfile $SNP_DATA --filter-founders --mind 0.3 --alleleACGT --make-bed --out $SNP_DATA.FOUNDERS
 
             # Initial QC on Reference SNP panel
-            plink --bfile $SNP_DATA.FOUNDERS --hardy        --out $SNP_DATA.FOUNDERS.hardy  # 진짜 92명에 대해 position별로 HWE test한 결과
-            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   # 실제 --freq 옵션이 allele frequency계산해주는 옵션임.
+            plink --bfile $SNP_DATA.FOUNDERS --hardy        --out $SNP_DATA.FOUNDERS.hardy  
+            plink --bfile $SNP_DATA.FOUNDERS --freq         --out $SNP_DATA.FOUNDERS.freq   
             plink --bfile $SNP_DATA.FOUNDERS --missing      --out $SNP_DATA.FOUNDERS.missing
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.hardy.hwe      | awk ' $9 < 0.000001 { print $2 }' | sort -u > remove.snps.hardy
             awk '{if (NR > 1){print}}' $SNP_DATA.FOUNDERS.freq.frq       | awk ' $5 < 0.01 { print $2 } '             > remove.snps.freq
@@ -372,64 +392,75 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
             rm remove.snps.*
         endif
         """
-        SNP_DATA = _INPUT_DATA
-        _INPUT_DATA_prefix = Path(_INPUT_DATA).name
-        command = ' '.join([plink, "--bfile", SNP_DATA, "--filter-founders", "--mind 0.3", "--alleleACGT", "--make-bed", "--out", os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix+'.FOUNDERS')])
-        print(command)
+
+        command = ' '.join([plink, "--bfile", SNP_DATA, "--filter-founders", "--mind 0.3", "--alleleACGT", "--make-bed", "--out", SNP_DATA2+'.FOUNDERS'])
+        # print(command)
         os.system(command)
 
-        # SNP_DATA2 = os.path.join(INTERMEDIATE_PATH, _INPUT_DATA_prefix)
 
         # Initial QC on Reference SNP panel
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--hardy", "--out", SNP_DATA2+'.FOUNDERS.hardy'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--freq", "--out", SNP_DATA2+'.FOUNDERS.freq'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--missing", "--out", SNP_DATA2+'.FOUNDERS.missing'])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.hardy.hwe', "|", "awk", "' $9 < 0.000001 { print $2 }'", "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.hardy")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.freq.frq', "|", "awk", "' $5 < 0.01 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.freq")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.missing.lmiss', "|", "awk", "' $5 > 0.05 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.missing")])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["cat", os.path.join(INTERMEDIATE_PATH, "remove.snps.*"), "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "all.remove.snps")])
-        print(command)
+        # print(command)
         os.system(command)
 
 
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS', "--exclude", os.path.join(INTERMEDIATE_PATH, "all.remove.snps"), "--make-bed", "--out", SNP_DATA2+'.FOUNDERS.QC'])
-        print(command)
+        # print(command)
         os.system(command)
 
         # Founders are identified here as individuals with "0"s in mother and father IDs in .fam file
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.HLA', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.HLA.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", OUTPUT+'.SNPS.CODED', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.SNPS.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join([plink, "--bfile", OUTPUT+'.AA.CODED', "--filter-founders", "--maf 0.0001", "--make-bed", "--out", OUTPUT+'.AA.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
 
-        command = ' '.join(["rm", os.path.join(INTERMEDIATE_PATH, "remove.snps.*")])
-        print(command)
-        os.system(command)
+        index += 1
+
+
+        if not __save_intermediates:
+
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.{bed,bim,fam,log,nosex}"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.hardy.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.freq.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.missing.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "remove.snps.*"))
+            os.system("rm " + os.path.join(INTERMEDIATE_PATH, "all.remove.snps"))
+
+            os.system("rm " + OUTPUT + ".HLA.{bed,bim,fam,log}")
+            os.system("rm " + OUTPUT + ".SNPS.CODED.{bed,bim,fam,log}")
+            os.system("rm " + OUTPUT + ".AA.CODED.{bed,bim,fam,log}")
+
 
 
 
     if MERGE:
 
-        print("\n[6] Merging SNP, HLA, and amino acid datasets.")
+        print("[{}] Merging SNP, HLA, and amino acid datasets.".format(index))
 
         """
         echo "[$i] Merging SNP, HLA, and amino acid datasets.";  @ i++
@@ -447,32 +478,38 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         TMP_merged_list = os.path.join(INTERMEDIATE_PATH, "merge_list")
 
         command = ' '.join(["echo", OUTPUT+'.HLA.FOUNDERS.bed', OUTPUT+'.HLA.FOUNDERS.bim', OUTPUT+'.HLA.FOUNDERS.fam', ">", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["echo", OUTPUT+'.AA.FOUNDERS.bed', OUTPUT+'.AA.FOUNDERS.bim', OUTPUT+'.AA.FOUNDERS.fam', ">>", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join(["echo", OUTPUT+'.SNPS.FOUNDERS.bed', OUTPUT+'.SNPS.FOUNDERS.bim', OUTPUT+'.SNPS.FOUNDERS.fam', ">>", TMP_merged_list])
-        print(command)
+        # print(command)
         os.system(command)
 
         command = ' '.join([plink, "--bfile", SNP_DATA2+'.FOUNDERS.QC', "--merge-list", TMP_merged_list, "--make-bed", "--out", OUTPUT+'.MERGED.FOUNDERS'])
-        print(command)
+        # print(command)
         os.system(command)
 
-        rm_tlist = (OUTPUT+'.HLA.???', OUTPUT+'.AA.CODED.???', OUTPUT+'.SNPS.CODED.???', TMP_merged_list)
+        index += 1
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+
+        if not __save_intermediates:
+
+            os.system("rm " + (OUTPUT + ".HLA.*"))
+            os.system("rm " + (OUTPUT + ".AA.*"))
+            os.system("rm " + (OUTPUT + ".SNPS.*"))
+            os.system("rm " + (SNP_DATA2 + ".FOUNDERS.QC.*"))
+            os.system("rm " + TMP_merged_list)
+
 
 
 
     if QC:
 
-        print("\n[7] Performing quality control.")
+        print("[{}] Performing quality control.".format(index))
 
         """
         plink --bfile $OUTPUT.MERGED.FOUNDERS --freq --out $OUTPUT.MERGED.FOUNDERS.FRQ
@@ -496,30 +533,35 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
         TMP_all_remove_snps = os.path.join(INTERMEDIATE_PATH, "all.remove.snps")
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--freq", "--out", OUTPUT+'.MERGED.FOUNDERS.FRQ'])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1 && ($5 < 0.0001 || $5 > 0.9999)){print $2}}'", OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_all_remove_snps])
-        print(command)
+        # print(command)
         os.system(command)
         command = ' '.join(["awk", '\'{if (NR > 1){if (($3 == "A" && $4 == "P") || ($4 == "A" && $3 == "P")){print $2 "\tP"}}}\'', OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_allele_order])
-        print(command)
+        # print(command)
         os.system(command)
 
         # QC: Maximum per-SNP missing > 0.5, MAF > 0.1%
-        command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])
-        print(command)
+        # command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT]) # Plink 1.07
+        command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--a1-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])   # Plink 1.9
+        # print(command)
         os.system(command)
 
         # Calculate allele frequencies
         command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--freq", "--out", OUTPUT+'.FRQ'])
-        print(command)
+        # print(command)
         os.system(command)
 
-        rm_tlist = (SNP_DATA2+'.FOUNDERS.*', OUTPUT+'.MERGED.FOUNDERS.*', OUTPUT+'.*.FOUNDERS.???', TMP_allele_order, TMP_all_remove_snps)
+        index += 1
 
-        for i in rm_tlist:
-            print(i)
-            os.system("rm "+i)
+
+        if not __save_intermediates:
+
+            os.system("rm " + (OUTPUT + ".MERGED.FOUNDERS.*"))
+            os.system("rm " + TMP_all_remove_snps)
+            os.system("rm " + TMP_allele_order)
+
 
 
 
@@ -547,54 +589,146 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
         echo "[$i] Converting to beagle format.";  @ i++
         beagle2vcf -fnmarker $OUTPUT.markers -fnfam $OUTPUT.fam -fngtype $OUTPUT.tped -fnout $OUTPUT.vcf
-
-        I will make this code block based on source given by Yang. for now.
-
+        
         """
 
-        print("\n[8] Preparing files for Beagle.")
+        """
+        [2019. 01. 30.]
+        
+        - In beagle4.x(> v3.x.x), 
+            (1) No other allele characters execpt 'A', 'C', 'G', 'T' and 'N' are allowed,
+            (2) No same genomic position is allowed to each markers.
+        - In beagle v3.x.x, above two issues weren't dealt with at all, which are the reasons why
+            S. Jia and B. Han chose beagle(v3.x.x) as main engine for 'MakeReference' and 'SNP2HLA'.
+        - However, as we are going to use beagle(v4.x), those issues must be solved. Two newly introduced modules 
+            (1) encodeAllels.py and (2) encodePosition.py will handle this.
 
-        command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bim', ">", OUTPUT+'.markers'])
-        print(command)
+        
+        (1) Encode genomic position
+        (2) make tped
+        (3) Encode alleles
+        (4) makebed
+        (5) *.markers
+        (5.5) recode to ped, map file
+        (6) *.dat and *.nopheno.ped => .bgl (by linkage2beagle.jar)
+        (7) *.vcf (by beagle2vcf.jar)
+        """
+
+        from src.encodeAlleles import encodeAllele
+        from src.encodePosition import encodePosition
+
+        print("[{}] Encoding allele characters and genomic positions.".format(index))
+
+        ## Encoding genomic positions.
+        temp_bim = encodePosition(OUTPUT, _encode=True, _decode=False, _map=None, _bim=OUTPUT+".bim", _pmap=None)
+
+        ## --recode transpose (*.tped. *.tfam) <- Plink1.9
+        command = ' '.join([plink, "--recode transpose", "--bed", OUTPUT+".bed", "--fam", OUTPUT+".fam", "--bim", temp_bim,
+                            "--keep-allele-order",  "--alleleACGT", "--out", OUTPUT+".pENCODED"])
+        # print(command)
         os.system(command)
-        command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT])
-        print(command)
+
+
+        ## Encoding allele characters.
+        temp_tped, __AlleleMap__, temp_ref = encodeAllele(OUTPUT+".pENCODED.tped", OUTPUT+".pENCODED", _encode=True, _decode=False, _emap=None)
+
+
+        ## --make-bed
+        command = ' '.join([plink, "--make-bed",
+                            "--tped", temp_tped,
+                            "--tfam", OUTPUT+".pENCODED.tfam",
+                            "--out", OUTPUT + ".bglv4",
+                            "--a1-allele", temp_ref])
+        # print(command)
         os.system(command)
-        command = ' '.join([plink, "--bfile", OUTPUT, "--recode --transpose --out", OUTPUT])
-        #command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.map', ">", OUTPUT+'.dat'])
+
+
+        if not __save_intermediates:
+
+            os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
+            os.system("rm " + OUTPUT+".pENCODED.aENCODED.{tped,ref}")
+
+
+        index += 1
+
+
+
+
+        print("[{}] Generating *.vcf file for Beagle(v4.1).".format(index))
+
+        ## Preparing files for Beagle which will be used in linkage2beagle.jar
+
+        # *.markers
+        # command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])     # plink1.07
+        command = ' '.join(["awk", '\'{print $2 " " $4 " " $6 " " $5}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])       # plink1.9
+        # print(command)
+        os.system(command)
+
+        # --recode (*.ped, *.map) => for *.dat and *.nopheno.ped
+        command = ' '.join([plink, "--bfile", OUTPUT+".bglv4", "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT+".bglv4"])
+        # print(command)
+        os.system(command)
+
+        # *.dat
+        command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.bglv4.map', ">", OUTPUT+'.bglv4.dat'])
         #print(command)
         os.system(command)
-        #command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.ped', ">", OUTPUT+'.nopheno.ped'])
-        print(command)
+
+        # *.nopheno.ped
+        command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.bglv4.ped', ">", OUTPUT+'.bglv4.nopheno.ped'])
+        # print(command)
         os.system(command)
 
-        print("\n[9] Converting to beagle format.")
 
-        #command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.nopheno.ped', "data="+OUTPUT+'.dat', "beagle="+OUTPUT+'.bgl', "standard=true", ">", OUTPUT+'.bgl.log'])
-        command = ''.join([beagle2vcf, " -fnmarker ", OUTPUT,".markers -fnfam ", OUTPUT,".fam -fngtype ", OUTPUT,".tped -fnout ", OUTPUT,".vcf"])
-
-        print(command)
+        # *.bgl
+        command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.bglv4.nopheno.ped', "data="+OUTPUT+'.bglv4.dat', "beagle="+OUTPUT+'.bglv4.bgl', "standard=true", ">", OUTPUT+'.bglv4.bgl.log'])
+        # print(command)
         os.system(command)
+
+
+        ## *.vcf
+        command = ' '.join([beagle2vcf, "6", OUTPUT+".bglv4.markers", OUTPUT+".bglv4.bgl", "0", "|", "gzip", ">", OUTPUT+".bglv4.vcf.gz"])
+        # print(command)
+        os.system(command)
+
+
+
+        # if not __save_intermediates:
+        #
+        #     os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
+
+
+
+        index += 1
+
+
 
 
 
     if PHASE:
 
-        # Put this part postponed. (2017.11.29. by B. Han.)
-        # Anyway introduced phasing by beagle. (2018. 7. 16.)
-
         '''
         beagle unphased=$OUTPUT.bgl nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000 log=$OUTPUT.phasing >> $OUTPUT.bgl.log
 
         '''
-        print("\n[10] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).")
+        print("[{}] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).".format(index))
 
         #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
 
         #new beagle (>v4), assuming 8 threads and 10 interations
-        command= ' '.join([beagle, "gt="+OUTPUT+'.vcf', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bgl', ">>", OUTPUT+'.bgl.log'])
-        print(command)
+        command= ' '.join([beagle, "gt="+OUTPUT+'.bglv4.vcf.gz', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bglv4.bgl.phased', ">>", OUTPUT+'.bglv4.bgl.log'])
+        # print(command)
         os.system(command)
+
+
+        index += 1
+
+
+
+        if not __save_intermediates:
+            os.system("rm " + OUTPUT + ".bglv4.{bgl,bgl.log,markers,vcf.gz}")
+
+
 
 
         #converting back to Beagle v3
@@ -612,7 +746,7 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
 
     if CLEANUP:
 
-        print("\n[11] Removing unnecessary files.")
+        print("[{}] Removing unnecessary files.".format(index))
         '''
         rm $OUTPUT.nopheno.ped
         rm $OUTPUT.bgl.gprobs
@@ -631,7 +765,10 @@ def MakeReference(_INPUT_DATA, _HLA_ped, _OUTPUT_Prefix,
             os.system("rm " + OUTPUT + i)
 
 
-    print("\n[12] Done!")
+        index += 1
+
+
+    print("[{}] Done!".format(index))
 
 
 
@@ -773,6 +910,5 @@ if __name__ == "__main__" :
 
 
     # Implementing Main Function.
-    MakeReference(_INPUT_DATA=args.i, _HLA_ped=args.ped, _OUTPUT_Prefix=args.o,
-                  _dictionary_AA=args.dict_AA, _dictionary_SNPS=args.dict_SNPS,
-                  _previous_version=args.previous_version, _hg=args.hg, _mem=args.mem)
+    MakeReference(_INPUT_DATA=args.i, _hped=args.ped, _OUTPUT=args.o, _dictionary_AA=args.dict_AA,
+                  _dictionary_SNPS=args.dict_SNPS, _previous_version=args.previous_version, _hg=args.hg, _mem=args.mem)
