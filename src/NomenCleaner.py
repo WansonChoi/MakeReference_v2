@@ -264,7 +264,6 @@ def CHECK_DIGITS(_hla_name, _the_allele, _IAT_Allelelist):
     Now it is introduced.
 
     """
-
     # check whether some single character is tagged along with the given allele.
     p_tag = re.compile(r'.+[A-Z]$')
     hasTag = p_tag.match(_the_allele)
@@ -441,11 +440,12 @@ def CHECK_DIGITS_PorGgroup(_hla_name, _the_allele, _IAT_Allelelist, _ped_descrip
 
 
     """
-
+    
     # _IAT_Allelelist = pd.Series(_IAT_Allelelist)
 
     # check whether some single character is tagged along with the given allele.
     p_tag = re.compile(r'.+[A-Z]$')
+    
     hasTag = p_tag.match(_the_allele)
 
     if hasTag:
@@ -455,7 +455,7 @@ def CHECK_DIGITS_PorGgroup(_hla_name, _the_allele, _IAT_Allelelist, _ped_descrip
         t_name = _the_allele
         t_name_tag = -1
 
-    # print("\n[CHECK_DIGITS_PorG] : {0} and {1}".format(t_name, t_name_tag))
+    #print("\n[CHECK_DIGITS_PorG] : {0} and {1}".format(t_name, t_name_tag))
 
     ### In case of "G-group"
     if _ped_descriptor == 2:
@@ -464,7 +464,6 @@ def CHECK_DIGITS_PorGgroup(_hla_name, _the_allele, _IAT_Allelelist, _ped_descrip
 
         if len(t_name) == 4:
             # (1) 2 + 2 (+C) = 4
-
             return ':'.join([t_name[0:2], t_name[2:4]]) + (t_name_tag if t_name_tag != -1 else "")
 
         elif len(t_name) == 5:
@@ -603,14 +602,19 @@ def Find_1st_Allele_PorGgroup(_the_allele, _df_IAT_Allele, _ped_descriptor):
     If given allele is P or G-group allele, then we can just find corresponding allele using ".loc[]" function.
 
     """
-
     if not isinstance(_df_IAT_Allele, pd.DataFrame):
         print("Given `_df_IAT_Allelelist` is not a pandas.DataFrame.\n")
         sys.exit()
 
     df_temp = _df_IAT_Allele.reset_index().set_index("G_group" if _ped_descriptor == 2 else "P_group")
-
-    Found_df = df_temp.loc[_the_allele, "Allele"]
+    
+    #in case the allele is not found in the table, return its original value
+    FoundAny = df_temp.loc[:, "Allele"].str.match(_the_allele).any()
+    if not FoundAny:
+        Found_df = df_temp.loc[_the_allele, "Allele"]
+    else:
+        Found_df = _the_allele
+    
     # (2018. 7. 4.) Found result `Found_df` could be 'str' object. So, you shouldn't use ".iat" function.
 
     # return str(Found_df.iat[0]) if len(Found_df) > 0 else "0"
