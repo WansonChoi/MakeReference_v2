@@ -691,9 +691,9 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
 
 
 
-        # if not __save_intermediates:
-        #
-        #     os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
+        if not __save_intermediates:
+
+            os.system("rm " + OUTPUT+".bglv4.{ped,map,dat,nopheno.ped,log}")
 
 
 
@@ -725,6 +725,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
 
         if not __save_intermediates:
             os.system("rm " + OUTPUT + ".bglv4.{bgl,bgl.log,markers,vcf.gz}")
+            os.system("rm " + OUTPUT + ".bglv4.bgl.phased.log")
 
 
 
