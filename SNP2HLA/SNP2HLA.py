@@ -43,8 +43,8 @@ def SNP2HLA(_input, _reference_panel, _out,
 
     _plink = os.path.join(_dependency, "plink_mac" if not bool(re.search(pattern="Linux", string=platform())) else "plink") #plink v1.9
     _beagle = os.path.join(_dependency, "beagle.jar")   # Beagle(v4.1)
-    _linkage2beagle = os.path.join(_dependency, "linkage2beagle.jar")
-    _beagle2linkage = os.path.join(_dependency, "beagle2linkage.jar")
+    #_linkage2beagle = os.path.join(_dependency, "linkage2beagle.jar")
+    #_beagle2linkage = os.path.join(_dependency, "beagle2linkage.jar")
     _merge_table = os.path.join("src/merge_tables.pl")
     _parse_dosage = os.path.join("src/ParseDosage.csh")
 
@@ -55,12 +55,12 @@ def SNP2HLA(_input, _reference_panel, _out,
     if not os.path.exists(_beagle):
         print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare Beagle(v4.1) in 'dependency/' folder.")
         sys.exit()
-    if not os.path.exists(_linkage2beagle):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'linkage2beagle.jar' in 'dependency/' folder.")
-        sys.exit()
-    if not os.path.exists(_beagle2linkage):
-        print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'beagle2linkage.jar' in 'dependency/' folder.")
-        sys.exit()
+    #if not os.path.exists(_linkage2beagle):
+    #    print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'linkage2beagle.jar' in 'dependency/' folder.")
+    #    sys.exit()
+    #if not os.path.exists(_beagle2linkage):
+    #    print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'beagle2linkage.jar' in 'dependency/' folder.")
+    #    sys.exit()
     if not os.path.exists(_merge_table):
         print(std_ERROR_MAIN_PROCESS_NAME + "Please prepare 'merge_tables.pl' in 'src/' folder.")
         sys.exit()
@@ -90,8 +90,8 @@ def SNP2HLA(_input, _reference_panel, _out,
 
     PLINK = ' '.join([_plink, "--silent", "--allow-no-sex"]) # "--noweb" won't be included because it is Plink1.9
     BEAGLE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _beagle])
-    LINKAGE2BEAGLE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _linkage2beagle])
-    BEAGLE2LINKAGE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _beagle2linkage])
+    #LINKAGE2BEAGLE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xss5M -Xmx"+_mem, "-jar", _linkage2beagle])
+    #BEAGLE2LINKAGE = ' '.join(["java", "-Djava.io.tmpdir="+JAVATMP, "-Xmx"+_mem, "-jar", _beagle2linkage])
 
     # MERGE = ' '.join(["perl", _merge_table])
     MERGE = _merge_table
@@ -102,9 +102,9 @@ def SNP2HLA(_input, _reference_panel, _out,
     ### Control Flags
     EXTRACT_MHC = 1
     FLIP = 1
-    CONVERT_IN = 0
-    IMPUTE = 0
-    CONVERT_OUT = 0
+    CONVERT_IN = 0 #no need to convert again using the new beagle version
+    IMPUTE = 1
+    CONVERT_OUT = 0 #no need to convert back to beagle v3 format using the new beagle version
     CLEANUP = 0
 
 
@@ -272,17 +272,24 @@ def SNP2HLA(_input, _reference_panel, _out,
         os.system(command)
 
 
+        # Extracting SNPs and recoding QC'd file as vcf
+        #plink --bfile $MHC.QC --extract $OUTPUT.SNPS.toinclude --make-bed --out $MHC.QC.reorder
+        #plink --bfile $MHC.QC.reorder --recode vcf-iid --a1-allele $REFERENCE.markers 4 1 --out $MHC.QC
+        command = ' '.join([PLINK, "--bfile", __MHC__+".QC", "--extract", OUTPUT+".SNPS.toinclude", "--make-bed --out", __MHC__+".QC.reorder" ])
+        print(command)
+        os.system(command)
 
-        ## Recoding QC'd file as ped
-
+        command = ' '.join([PLINK, "--bfile", __MHC__+".QC.reorder", "--recode vcf-iid --a1-allele", _reference_panel+".markers 4 1", "--out", __MHC__+".QC" ])
+        print(command)
+        os.system(command)
         # temporary ponstponed.
 
 
         # ## Remove temporary files.
-        # os.system(' '.join(["rm ", OUTPUT+".tmp{1,2}"]))
-        # os.system(' '.join(["rm ", __MHC__+".FLP.*"]))
-        # os.system(' '.join(["rm ", __MHC__+".QC.{ped,map}"]))
-        # os.system(' '.join(["rm ", OUTPUT+".SNPS.*"]))
+        os.system(' '.join(["rm ", OUTPUT+".tmp{1,2}"]))
+        os.system(' '.join(["rm ", __MHC__+".FLP.*"]))
+        os.system(' '.join(["rm ", __MHC__+".QC.{ped,map}"]))
+        os.system(' '.join(["rm ", OUTPUT+".SNPS.*"]))
 
 
 
@@ -294,8 +301,13 @@ def SNP2HLA(_input, _reference_panel, _out,
     if IMPUTE:
 
         print("[{}] Performing HLA imputation.".format(index)); index += 1
+        #new beagle (>v4), assuming 4 threads and 10 interations
+        command=' '.join([BEAGLE, "gt=" + __MHC__+".QC.vcf", 'ref='+_reference_panel,'impute=true gprobs=true nthreads=4 chrom=6 niterations=10 lowmem=true out='+ OUTPUT+".bgl"])
 
-
+        print(command)
+        os.system(command)
+        
+        
     if CONVERT_OUT:
 
         print("[{}] Converting posterior probabilities to Plink dosage format.".format(index)); index += 1
