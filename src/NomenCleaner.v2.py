@@ -54,14 +54,6 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
     else:
         INTERMEDIATE_PATH = "./"
 
-    # # (2019. 01. 06) Temporary Hard Coding
-    # if _field_format == 7:
-    #     # To make old format (ex. A:01:01)
-    #
-    #     with open(_out + ".chped", 'w') as f_CHPED:
-    #         f_CHPED.writelines(Main_Transformation2(_hped))
-    #
-    #     return 0
 
 
 
@@ -70,8 +62,8 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
     __HPED__ = pd.read_table(_hped, sep='\t', header=None, dtype=str,
                         names=header_ped + [item + "_" + str(i) for item in HLA_names for i in range(1, 3)]).set_index((header_ped))
 
-    print(std_MAIN_PROCESS_NAME + "Loaded \"*.ped\" file.")
-    print(__HPED__.head())
+    # print(std_MAIN_PROCESS_NAME + "Loaded \"*.ped\" file.")
+    # print(__HPED__.head())
 
 
 
@@ -176,7 +168,7 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
 
     ### DataFrame of Searched alleles.
     df_IAT_Searched = pd.DataFrame(l_rows_Searched)
-    print(df_IAT_Searched.head())
+    # print(df_IAT_Searched.head())
     # df_IAT_Searched.to_csv(_out+'.testest.chped', sep='\t', header=False, index=False)
 
 
@@ -245,15 +237,20 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
 
         for i in range(0, len(HLA_names)):
 
-            sr_from = __IAT_dict__[HLA_names[i]].iloc[:, col_from]
-            sr_to = __IAT_dict__[HLA_names[i]].iloc[:, col_to]
+            from_which = "Allele" if _hped_descriptor == 1 else "G_group" if _hped_descriptor == 2 else "P_group"
+
+            df_temp = __IAT_dict__[HLA_names[i]].drop_duplicates(from_which)
+            # print(df_temp.head())
+
+            sr_from = df_temp.iloc[:, col_from]
+            sr_to = df_temp.iloc[:, col_to]
 
             sr_to.index = sr_from
 
             __IAT_dict2__[HLA_names[i]] = sr_to.to_dict()
 
-    print("__IAT_dict2__")
-    print(__IAT_dict2__)
+    # print("__IAT_dict2__")
+    # print(__IAT_dict2__)
 
 
     ### Transforming HLA alleles searched in "*.iat" (`df_IAT_Searched`) to (1) standard 4-field, (2) G-group, or (2) P-group allele.
@@ -266,6 +263,44 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
 
 
     ########## < [5] Final Trimming > ##########
+
+    ### Trimming out `df_Transformed`(standard 4-field) (1-field, 2-field, 3-field, or old-format(MakeReference)).
+
+    if _field_format < 4:
+
+        if _field_format == 0:
+            ## Old-format (for compatibility with original version of MakeReference(by S. Jia))
+            p_old_format = re.compile(r'^(\w+\*)?(\d{2,3}:){0,1}\d{2,3}[A-Z]?')
+
+            df_Transformed = df_Transformed.applymap(lambda x: p_old_format.match(x).group() if bool(p_old_format.match(x)) else x).applymap(lambda x : re.sub(pattern=r'\*', string=x, repl=':'))
+
+
+        elif _field_format == 1:
+            ## 1-field
+            p_1field = re.compile(r'^(\w+\*)?\d{2,3}')
+
+            df_Transformed = df_Transformed.applymap(lambda x: p_1field.match(x).group() if bool(p_1field.match(x)) else x)
+
+
+        elif _field_format == 2:
+            ## 2-field
+            p_2field = re.compile(r'^(\w+\*)?(\d{2,3}:){0,1}\d{2,3}[A-Z]?')
+
+            df_Transformed = df_Transformed.applymap(lambda x : p_2field.match(x).group() if bool(p_2field.match(x)) else x)
+
+
+        elif _field_format == 3:
+            ## 3-field
+            p_3field = re.compile(r'^(\w+\*)?(\d{2,3}:){0,2}\d{2,3}[A-Z]?')
+
+            df_Transformed = df_Transformed.applymap(lambda x : p_3field.match(x).group() if bool(p_3field.match(x)) else x)
+
+
+        # print(df_Transformed.head())
+        # df_Transformed.to_csv(_out+".tEst.{}.chped".format(MakeSuffixInfo(_imgt, _field_format)), sep='\t', header=False, index=True)
+
+
+
 
     ### Integrating Not found allele(novel allele) ... Yang requested.
 
@@ -297,12 +332,14 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
 
         count += 1
 
-    df_merged_NotFound = pd.DataFrame(l_rows_merged, index=__HPED__.index)
-    print(df_merged_NotFound.head())
+    __RETURN__ = pd.DataFrame(l_rows_merged, index=__HPED__.index)
+    # print(__RETURN__.head())
 
 
     ### Writing final output(*.chped)
-    df_merged_NotFound.to_csv(_out+".{}.chped".format(MakeSuffixInfo(_imgt, _field_format)), sep='\t', header=False, index=True)
+    __RETURN__.to_csv(_out+".{}.chped".format(MakeSuffixInfo(_imgt, _field_format)), sep='\t', header=False, index=True)
+
+
 
     return 0
 
@@ -818,58 +855,58 @@ def Main_Transformation(_df_IAT_Searched, _IAT_dict2, _f_NoCaption=False):
 
 
 
-def Main_Transformation2(_hped):
-    #### [Warning] Temporary Hard coding. This funciton will be either adopted to the main transformation function or deprecated.
+# def Main_Transformation2(_hped):
+#     #### [Warning] Temporary Hard coding. This funciton will be either adopted to the main transformation function or deprecated.
+#
+#     with open(_hped, 'r') as f_hped:
+#         count = 0
+#
+#         for l in f_hped:
+#             t_line = re.split(r'\s+', l.rstrip('\n'))
+#
+#             """
+#             [0,1,2,3,4,5] := ped file information
+#             [6,7] := HLA-A,
+#             [8,9] := HLA-B,
+#             ...,
+#             [20, 21] := HLA-DRB1
+#             """
+#             __ped_info__ = '\t'.join(t_line[:6])
+#             __genomic_info__ = '\t'.join(
+#                 [Old_Transformation(t_line[2 * i + 6], t_line[2 * i + 7], HLA_names[i]) for i in
+#                  range(0, len(HLA_names))])
+#
+#             yield '\t'.join([__ped_info__, __genomic_info__]) + "\n"
+#
+#             count += 1
+#             # if count > 5: break
 
-    with open(_hped, 'r') as f_hped:
-        count = 0
 
-        for l in f_hped:
-            t_line = re.split(r'\s+', l.rstrip('\n'))
-
-            """
-            [0,1,2,3,4,5] := ped file information
-            [6,7] := HLA-A,
-            [8,9] := HLA-B,
-            ...,
-            [20, 21] := HLA-DRB1
-            """
-            __ped_info__ = '\t'.join(t_line[:6])
-            __genomic_info__ = '\t'.join(
-                [Old_Transformation(t_line[2 * i + 6], t_line[2 * i + 7], HLA_names[i]) for i in
-                 range(0, len(HLA_names))])
-
-            yield '\t'.join([__ped_info__, __genomic_info__]) + "\n"
-
-            count += 1
-            # if count > 5: break
-
-
-def Old_Transformation(_HLA_allele1, _HLA_allele2, _hla):
-    if (_HLA_allele1 == "0" and _HLA_allele2 == "0"):
-        return '\t'.join(["0", "0"])
-    else:
-
-        p = re.compile(r'\d{4}[A-Z]?$')  # Only 4-digit with or without single suffix is accepted in old transformation.
-        p_1field = re.compile(r'\d{2}')  # decided to also process 1-field HLA alleles.
-
-        # Allele1
-        if p.match(_HLA_allele1):
-            _new_al1 = ':'.join([_hla, _HLA_allele1[:2], _HLA_allele1[2:4]])
-        elif p_1field.match(_HLA_allele1):
-            _new_al1 = ':'.join([_hla, _HLA_allele1])
-        else:
-            _new_al1 = "0" if _HLA_allele1 == "0" else "-1"
-
-        # Allele2
-        if p.match(_HLA_allele2):
-            _new_al2 = ':'.join([_hla, _HLA_allele2[:2], _HLA_allele2[2:4]])
-        elif p_1field.match(_HLA_allele2):
-            _new_al2 = ':'.join([_hla, _HLA_allele2])
-        else:
-            _new_al2 = "0" if _HLA_allele2 == "0" else "-1"
-
-        return '\t'.join([_new_al1, _new_al2])
+# def Old_Transformation(_HLA_allele1, _HLA_allele2, _hla):
+#     if (_HLA_allele1 == "0" and _HLA_allele2 == "0"):
+#         return '\t'.join(["0", "0"])
+#     else:
+#
+#         p = re.compile(r'\d{4}[A-Z]?$')  # Only 4-digit with or without single suffix is accepted in old transformation.
+#         p_1field = re.compile(r'\d{2}')  # decided to also process 1-field HLA alleles.
+#
+#         # Allele1
+#         if p.match(_HLA_allele1):
+#             _new_al1 = ':'.join([_hla, _HLA_allele1[:2], _HLA_allele1[2:4]])
+#         elif p_1field.match(_HLA_allele1):
+#             _new_al1 = ':'.join([_hla, _HLA_allele1])
+#         else:
+#             _new_al1 = "0" if _HLA_allele1 == "0" else "-1"
+#
+#         # Allele2
+#         if p.match(_HLA_allele2):
+#             _new_al2 = ':'.join([_hla, _HLA_allele2[:2], _HLA_allele2[2:4]])
+#         elif p_1field.match(_HLA_allele2):
+#             _new_al2 = ':'.join([_hla, _HLA_allele2])
+#         else:
+#             _new_al2 = "0" if _HLA_allele2 == "0" else "-1"
+#
+#         return '\t'.join([_new_al1, _new_al2])
 
 
 
@@ -889,11 +926,14 @@ def MakeSuffixInfo(_imgt, _field_format):
         s_field = "Ggroup"
     elif _field_format == 6:
         s_field = "Pgroup"
-    elif _field_format == 7:
+    elif _field_format == 0:
         s_field = "OLD"
 
 
     return "imgt{}.{}".format(_imgt, s_field)
+
+
+
 
 
 if __name__ == '__main__':
@@ -959,6 +999,8 @@ if __name__ == '__main__':
 
     ##### <for Test> #####
 
+    ### < Raw 4-field *.hped >
+
     # # raw 4-field to standard 4-field / with Novel Allele / --leave-NotFound
     # args = parser.parse_args(["-ped", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/wtccc_filtered_58C_NBS.raw4field.novelallele.before.hped",
     #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
@@ -997,18 +1039,79 @@ if __name__ == '__main__':
 
 
 
-    # raw G-group to 4-field / with Novel Allele / --leave-NotFound
-    args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
-                              "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
-                              "-imgt", "3320",
-                              "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
-                              "--4field",
-                              "--leave-NotFound"
-                              ])
+    ### < raw G-group >
+
+    # # raw G-group to 4-field / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--4field",
+    #                           "--leave-NotFound"
+    #                           ])
+
+    # # raw G-group to 3-field / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--3field",
+    #                           "--leave-NotFound"
+    #                           ])
+
+    # # raw G-group to 2-field / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--2field",
+    #                           "--leave-NotFound"
+    #                           ])
+
+    # # raw G-group to 1-field / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--1field",
+    #                           "--leave-NotFound"
+    #                           ])
+
+    # # raw G-group to old-format / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--old-format",
+    #                           "--leave-NotFound"
+    #                           ])
+
+
+
+    # # raw G-group to G-group / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--G-group",
+    #                           "--leave-NotFound"
+    #                           ])
+
+
+    # # raw G-group to P-group / with Novel Allele / --leave-NotFound
+    # args = parser.parse_args(["-ped-Ggroup", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele.ped",
+    #                           "-iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190123_hg18_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg18.imgt3320.iat",
+    #                           "-imgt", "3320",
+    #                           "-o", "/Users/wansun/Projects/20190222_JSH_GWAS/NomenCleanerTest/DummyPED.Ggroup.Ncap.Ndc.10.novelallele",
+    #                           "--P-group",
+    #                           "--leave-NotFound"
+    #                           ])
+
+
 
     ##### <for Publication> #####
 
-    # args = parser.parse_args()
+    args = parser.parse_args()
     print(args)
 
 
@@ -1031,9 +1134,10 @@ if __name__ == '__main__':
     elif args.P_group:
         FIELD_FORMAT = 6
     elif args.old_format:
-        FIELD_FORMAT = 7
+        FIELD_FORMAT = 0 # Old format will be assigned 0 for `FIELD_FORMAT`.
     else:
-        FIELD_FORMAT = -1
+        print(std_ERROR_MAIN_PROCESS_NAME + "Argument for Field format is not appropriate. Please check them again.\n")
+        sys.exit()
 
     ## Which type of ped file given?
     _p_ped = -1
@@ -1053,24 +1157,23 @@ if __name__ == '__main__':
         _p_ped_descriptor = 3
     else:
         # Assuming at least three of them given, there won't be the case which comes to here.
-        print(
-            std_ERROR_MAIN_PROCESS_NAME + "Argument for input *.ped file is not appropriate. Please check it again.\n")
+        print(std_ERROR_MAIN_PROCESS_NAME + "Argument for input *.ped file is not appropriate. Please check it again.\n")
         sys.exit()
 
-    ## If input ped file is given as G-group(or P-group), then user can't choose output format as same G-group(as same to P-group)
-    if (_p_ped_descriptor == 2 and FIELD_FORMAT == 5):
-        print(
-            std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation G-group to G-group is pointless).")
-        print("Skip this Transformation Request.\n")
-        sys.exit()
-
-        # (2018. 7. 10.) P to P or G to G 여도 NoDoubleColon인 경우는 할 수 있게 해줘야할듯.
-
-    if (_p_ped_descriptor == 3 and FIELD_FORMAT == 6):
-        print(
-            std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation P-group to P-group is pointless).")
-        print("Skip this Transformation Request.\n")
-        sys.exit()
+    # ## If input ped file is given as G-group(or P-group), then user can't choose output format as same G-group(as same to P-group)
+    # if (_p_ped_descriptor == 2 and FIELD_FORMAT == 5):
+    #     print(
+    #         std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation G-group to G-group is pointless).")
+    #     print("Skip this Transformation Request.\n")
+    #     sys.exit()
+    #
+    #     # (2018. 7. 10.) P to P or G to G 여도 NoDoubleColon인 경우는 할 수 있게 해줘야할듯.
+    #
+    # if (_p_ped_descriptor == 3 and FIELD_FORMAT == 6):
+    #     print(
+    #         std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation P-group to P-group is pointless).")
+    #     print("Skip this Transformation Request.\n")
+    #     sys.exit()
 
     NomenCleaner(_p_ped, _p_ped_descriptor, args.iat, args.imgt, args.o, FIELD_FORMAT, __f_NoCaption=args.NoCaption,
                  __leave_NotFound=args.leave_NotFound)
