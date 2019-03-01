@@ -719,11 +719,13 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         beagle unphased=$OUTPUT.bgl nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000 log=$OUTPUT.phasing >> $OUTPUT.bgl.log
 
         '''
-        print("[{}] Phasing reference using Beagle (see progress in $OUTPUT.bgl.log).".format(index))
+        print("[{}] Phasing reference using Beagle (see progress in {}.log).".format(index, OUTPUT+'.bglv4.bgl.phased'))
 
-        #command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
+        ## Previous beagle v3.x.x
+        # command= ' '.join([beagle, "unphased="+OUTPUT+'.bgl', "nsamples=4 niterations=10 missing=0 verbose=true maxwindow=1000", "log="+OUTPUT+'.phasing', ">>", OUTPUT+'.bgl.log'])
 
-        #new beagle (>v4), assuming 8 threads and 10 interations
+
+        ## New beagle (>v4), assuming 8 threads and 10 interations
         command= ' '.join([beagle, "gt="+OUTPUT+'.bglv4.vcf.gz', "chrom=6 nthreads=8 niterations=10 lowmem=true", "out="+OUTPUT+'.bglv4.bgl.phased', ">>", OUTPUT+'.bglv4.bgl.log'])
         # print(command)
         os.system(command)
@@ -734,8 +736,8 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
 
 
         if not __save_intermediates:
-            os.system("rm " + OUTPUT + ".bglv4.{bgl,bgl.log,markers,vcf.gz}")
-            os.system("rm " + OUTPUT + ".bglv4.bgl.phased.log")
+            os.system("rm " + OUTPUT + ".bglv4.{bgl,bgl.log,vcf.gz}")
+            # os.system("rm " + OUTPUT + ".bglv4.bgl.phased.log")
 
 
 
