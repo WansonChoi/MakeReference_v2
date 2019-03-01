@@ -96,17 +96,14 @@ def SNP2HLA(_input, _reference_panel, _out,
 
     # MERGE = ' '.join(["perl", _merge_table])
     MERGE = _merge_table
-    PARSEDOSAGE = _parse_dosage
+    # PARSEDOSAGE = _parse_dosage
 
 
 
     ### Control Flags
     EXTRACT_MHC = 1
     FLIP = 1
-    CONVERT_IN = 0 #no need to convert again using the new beagle version
     IMPUTE = 1
-    CONVERT_OUT = 0 #no need to convert back to beagle v3 format using the new beagle version
-    CLEANUP = 0
 
 
     print("SNP2HLA: Performing HLA imputation for dataset {}".format(_input))
@@ -294,7 +291,7 @@ def SNP2HLA(_input, _reference_panel, _out,
 
 
         # Just in case of storage problem.
-        command = ' '.join(["gzip", __MHC__+".QC.vcf"])
+        command = ' '.join(["gzip -f", __MHC__+".QC.vcf"])
         print(command)
         os.system(command)
 
@@ -314,10 +311,6 @@ def SNP2HLA(_input, _reference_panel, _out,
 
 
 
-    if CONVERT_IN:
-
-        print("[{}] Converting data to beagle format.".format(index)); index += 1
-
 
     if IMPUTE:
 
@@ -329,21 +322,42 @@ def SNP2HLA(_input, _reference_panel, _out,
         """
 
         print("[{}] Performing HLA imputation.".format(index)); index += 1
-        #new beagle (>v4), assuming 4 threads and 10 interations
-        command=' '.join([BEAGLE, "gt=" + __MHC__+".QC.vcf.gz", 'ref='+_reference_panel, 'impute=true gprobs=true nthreads=4 chrom=6 niterations=10 lowmem=true out='+ OUTPUT+".bgl"])
+
+        ## new beagle (>v4), assuming 4 threads and 10 interations
+        command=' '.join([BEAGLE,
+                          "gt=" + __MHC__+".QC.vcf.gz",
+                          'ref='+_reference_panel+".bgl.phased.vcf.gz",
+                          'impute=true',
+                          'gprobs=true',
+                          'nthreads={}'.format(_beagle_NTHREADS),
+                          'chrom=6',
+                          'niterations={}'.format(_beagle_ITER),
+                          'lowmem=true',
+                          ('map={}'.format(_beagle_MAP) if bool(_beagle_MAP) else ''),
+                          'out='+ OUTPUT+".bgl"])
 
         print(command)
         os.system(command)
+
+
+
+        """
+        (1) Imputation result in *.vcf.gz file
+        (2) Imputation result in *.{bed,bim,fam} files (*.vcf.gz => *.{bed,bim,fam})
+        (2) Dosage file (*.gprobs => *.dosage) # (deprecated for now.)
+        """
+
+
+        # (2) Imputation result in *.{bed,bim,fam} files (*.vcf.gz => *.{bed,bim,fam})
+        command = ' '.join([PLINK, "--make-bed", "--vcf", OUTPUT+".bgl.vcf.gz", "--out", OUTPUT])
+        print(command)
+        os.system(command)
+
+
+        os.system(' '.join(["rm ", __MHC__+".QC.vcf.gz"]))
+        os.system(' '.join(["rm -rf", JAVATMP]))
+
         
-        
-    if CONVERT_OUT:
-
-        print("[{}] Converting posterior probabilities to Plink dosage format.".format(index)); index += 1
-
-
-
-        print("[{}] Converting imputation genotypes to Plink *.ped format.".format(index)); index += 1
-
 
 
     print("Done\n")
