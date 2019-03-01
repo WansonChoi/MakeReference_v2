@@ -546,10 +546,10 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         # print(command)
         os.system(command)
 
-        # Calculate allele frequencies
-        command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--freq", "--out", OUTPUT+'.FRQ'])
-        # print(command)
-        os.system(command)
+        # # Calculate allele frequencies => It will done after marker panel for beagle v4 is created (Next code block).
+        # command = ' '.join([plink, "--bfile", OUTPUT, "--keep-allele-order", "--freq", "--out", OUTPUT+'.FRQ'])
+        # # print(command)
+        # os.system(command)
 
         index += 1
 
@@ -631,7 +631,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         temp_tped, __AlleleMap__, temp_ref = encodeAllele(OUTPUT+".pENCODED.tped", OUTPUT+".pENCODED", _encode=True, _decode=False, _emap=None)
 
 
-        ## --make-bed
+        ## --make-bed ( *.bgl.{bed,bim,fam} )
         command = ' '.join([plink, "--make-bed",
                             "--tped", temp_tped,
                             "--tfam", OUTPUT+".pENCODED.tfam",
@@ -641,10 +641,20 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         os.system(command)
 
 
+
+
+        # Calculate allele frequencies => Previously done in the last of "QC" code block.
+        command = ' '.join([plink, "--bfile", OUTPUT+".bglv4", "--keep-allele-order", "--freq", "--out", OUTPUT+'.bglv4.FRQ'])
+        # print(command)
+        os.system(command)
+
+
+
         if not __save_intermediates:
 
             os.system("rm " + OUTPUT+".pENCODED.{bim,log,tfam,tped}")
             os.system("rm " + OUTPUT+".pENCODED.aENCODED.{tped,ref}")
+            os.system("rm " + OUTPUT+".{bed,bim,fam,log}")
 
 
         index += 1
