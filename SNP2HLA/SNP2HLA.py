@@ -16,6 +16,7 @@ std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__
 
 def SNP2HLA(_input, _reference_panel, _out,
             _mem = "2000m", _marker_window_size=1000, _tolerated_diff=.15,
+            _beagle_NTHREADS=1, _beagle_ITER=5, _beagle_MAP=None,
             _dependency="./"):
 
 
@@ -272,9 +273,17 @@ def SNP2HLA(_input, _reference_panel, _out,
         os.system(command)
 
 
+
+        ### < Making *.vcf file for imputation (Beagle v4.x.x.) > ###
+
+        """
         # Extracting SNPs and recoding QC'd file as vcf
-        #plink --bfile $MHC.QC --extract $OUTPUT.SNPS.toinclude --make-bed --out $MHC.QC.reorder
-        #plink --bfile $MHC.QC.reorder --recode vcf-iid --a1-allele $REFERENCE.markers 4 1 --out $MHC.QC
+        plink --bfile $MHC.QC --extract $OUTPUT.SNPS.toinclude --make-bed --out $MHC.QC.reorder
+        plink --bfile $MHC.QC.reorder --recode vcf-iid --a1-allele $REFERENCE.markers 4 1 --out $MHC.QC
+        
+        """
+
+        # Extracting SNPs and recoding QC'd file as vcf
         command = ' '.join([PLINK, "--bfile", __MHC__+".QC", "--extract", OUTPUT+".SNPS.toinclude", "--make-bed --out", __MHC__+".QC.reorder" ])
         print(command)
         os.system(command)
@@ -282,14 +291,26 @@ def SNP2HLA(_input, _reference_panel, _out,
         command = ' '.join([PLINK, "--bfile", __MHC__+".QC.reorder", "--recode vcf-iid --a1-allele", _reference_panel+".markers 4 1", "--out", __MHC__+".QC" ])
         print(command)
         os.system(command)
-        # temporary ponstponed.
 
 
-        # ## Remove temporary files.
+        # Just in case of storage problem.
+        command = ' '.join(["gzip", __MHC__+".QC.vcf"])
+        print(command)
+        os.system(command)
+
+
+
+        ## Remove temporary files.
         os.system(' '.join(["rm ", OUTPUT+".tmp{1,2}"]))
         os.system(' '.join(["rm ", __MHC__+".FLP.*"]))
-        os.system(' '.join(["rm ", __MHC__+".QC.{ped,map}"]))
+        # os.system(' '.join(["rm ", __MHC__+".QC.{ped,map}"]))
         os.system(' '.join(["rm ", OUTPUT+".SNPS.*"]))
+
+        # Beagle v4.x.x.
+        os.system(' '.join(["rm ", __MHC__+".{bed,bim,fam,log}"]))
+        os.system(' '.join(["rm ", __MHC__+".QC.reorder.*"]))
+        os.system(' '.join(["rm ", __MHC__+".QC.{bed,bim,fam,log}"]))
+        os.system(' '.join(["rm ", __MHC__+".QC.FRQ.{frq,log}"]))
 
 
 
@@ -300,9 +321,16 @@ def SNP2HLA(_input, _reference_panel, _out,
 
     if IMPUTE:
 
+        """
+        if ($#argv >= 8) then
+            beagle ref=$REFERENCE.bgl.vcf.gz gt=$MHC.QC.vcf impute=true gprobs=true nthreads=$THREAD chrom=6 niterations=$ITER lowmem=true out=$OUTPUT.bgl map=$MAP
+	    else
+            beagle ref=$REFERENCE.bgl.vcf.gz gt=$MHC.QC.vcf impute=true gprobs=true nthreads=$THREAD chrom=6 niterations=$ITER lowmem=true out=$OUTPUT.bgl
+        """
+
         print("[{}] Performing HLA imputation.".format(index)); index += 1
         #new beagle (>v4), assuming 4 threads and 10 interations
-        command=' '.join([BEAGLE, "gt=" + __MHC__+".QC.vcf", 'ref='+_reference_panel,'impute=true gprobs=true nthreads=4 chrom=6 niterations=10 lowmem=true out='+ OUTPUT+".bgl"])
+        command=' '.join([BEAGLE, "gt=" + __MHC__+".QC.vcf.gz", 'ref='+_reference_panel, 'impute=true gprobs=true nthreads=4 chrom=6 niterations=10 lowmem=true out='+ OUTPUT+".bgl"])
 
         print(command)
         os.system(command)
@@ -372,10 +400,15 @@ if __name__ == "__main__" :
     parser.add_argument("--out", "-o", help="\nOutput file prefix\n\n", required=True)
     parser.add_argument("--reference", "-rf", help="\nThe file prefix of reference panel for imputation.\n\n", required=True)
 
-    parser.add_argument("--java-mem", "-mem", help="\nJava memory allocation(ex. '2000m', '2g', or '2G').\n\n", default='2000m')
-    parser.add_argument("--marker-window", help="\nMarker window size for imputation (default: 1000).\n\n", default=1000)
     parser.add_argument("--tolerated-diff", help="\nTolerated diff (default : 0.15).\n\n", default=0.15)
     parser.add_argument("--dependency", help="\nPath(folder) to dependecy software.\n\n", default="./") # Default : the folder where SNP2HLA.py is implemented.
+
+    # Beagle(v4).
+    parser.add_argument("--java-mem", "-mem", help="\nJava memory allocation(ex. '2000m', '2g', or '2G').\n\n", default='2000m')
+    parser.add_argument("--marker-window", help="\n(Beagle4.1) Marker window size for imputation (default: 1000).\n\n", default=1000)
+    parser.add_argument("--nthreads", help="\n(Beagle4.1) The number of threads to be used in imputation. (default: 1)\n\n", default=1)
+    parser.add_argument("--iter", help="\n(Beagle4.1) The number of iteration in imputation (default: 5).\n\n", default=5)
+    parser.add_argument("--plink-genetic-map", help="\n(Beagle4.1) Plink genetic map file to be utilized in imputation (default: None).\n\n", default=None)
 
 
     ##### <for Test> #####
@@ -388,5 +421,7 @@ if __name__ == "__main__" :
 
 
 
-    SNP2HLA(args.input, args.reference, args.out, _mem=args.java_mem, _marker_window_size=args.marker_window,
-            _tolerated_diff=args.tolerated_diff, _dependency=args.dependency)
+    SNP2HLA(args.input, args.reference, args.out,
+            _mem=args.java_mem, _marker_window_size=args.marker_window, _tolerated_diff=args.tolerated_diff,
+            _beagle_NTHREADS=args.nthreads, _beagle_ITER=args.iter, _beagle_MAP=args.plink_genetic_map,
+            _dependency=args.dependency)
