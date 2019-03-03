@@ -46,6 +46,7 @@ def SNP2HLA(_input, _reference_panel, _out,
     _beagle = os.path.join(_dependency, "beagle.jar")   # Beagle(v4.1)
     #_linkage2beagle = os.path.join(_dependency, "linkage2beagle.jar")
     #_beagle2linkage = os.path.join(_dependency, "beagle2linkage.jar")
+    _vcf2gprobs = os.path.join(_dependency, "vcf2gprobs.jar")
     _merge_table = os.path.join("src/merge_tables.pl")
     _parse_dosage = os.path.join("src/ParseDosage.csh")
 
@@ -96,7 +97,7 @@ def SNP2HLA(_input, _reference_panel, _out,
 
     # MERGE = ' '.join(["perl", _merge_table])
     MERGE = _merge_table
-    # PARSEDOSAGE = _parse_dosage
+    PARSEDOSAGE = _parse_dosage
 
 
 
@@ -334,24 +335,41 @@ def SNP2HLA(_input, _reference_panel, _out,
                           'niterations={}'.format(_beagle_ITER),
                           'lowmem=true',
                           ('map={}'.format(_beagle_MAP) if bool(_beagle_MAP) else ''),
-                          'out='+ OUTPUT+".bgl"])
+                          'out='+ OUTPUT+".bgl.phased"])
 
         print(command)
         os.system(command)
+
+        __IMPUTED__ = OUTPUT+".bgl.phased.vcf.gz"
 
 
 
         """
         (1) Imputation result in *.vcf.gz file
         (2) Imputation result in *.{bed,bim,fam} files (*.vcf.gz => *.{bed,bim,fam})
-        (2) Dosage file (*.gprobs => *.dosage) # (deprecated for now.)
+        (2) Dosage file (*.gprobs => *.dosage)
         """
 
 
         # (2) Imputation result in *.{bed,bim,fam} files (*.vcf.gz => *.{bed,bim,fam})
-        command = ' '.join([PLINK, "--make-bed", "--vcf", OUTPUT+".bgl.vcf.gz", "--out", OUTPUT])
+        command = ' '.join([PLINK, "--make-bed", "--vcf", __IMPUTED__, "--out", OUTPUT])
         print(command)
         os.system(command)
+
+
+        # (3) Dosage file
+        command = ' '.join(["gunzip -c", __IMPUTED__, "|", "cat", "|", "java -jar {} > {}".format(_vcf2gprobs, OUTPUT+".bgl.gprobs")])
+        print(command)
+        os.system(command)
+
+        __gprobs__ = OUTPUT+".bgl.gprobs"
+
+
+        command = ' '.join(["tail -n +2 {}".format(__gprobs__), "|",
+                            PARSEDOSAGE, "- > {}".format(OUTPUT+".dosage")])
+        print(command)
+        os.system(command)
+
 
 
         os.system(' '.join(["rm ", __MHC__+".QC.vcf.gz"]))
@@ -373,33 +391,51 @@ if __name__ == "__main__" :
     #################################################################################################
 
         < SNP2HLA.py >
-
+    
+        SNP2HLA: Imputation of HLA amino acids and classical alleles from SNP genotypes
+    
         Author: Sherman Jia (xiaomingjia@gmail.com)
                 + Small modifications by Buhm Han (buhmhan@broadinstitute.org): 8/7/12
                 + Extensive modifications by Phil Stuart (pstuart@umich.edu) on 4/19/16 to allow use of Beagle 4.1:
-                  verified to work with 22Feb16, 15Apr16, and 03May16 versions of Beagle.
+                    verified to work with 22Feb16, 15Apr16, and 03May16 versions of Beagle.
                 + Small modifications by Yang Luo (yangluo@broadinstitute.org): 09/30/16: verfiied working with Bealge 4.1 27Jun16.
-                + Recoded to python by Wanson Choi(wschoi.bhlab@gmail.com) : 2019/02/06 
+                + Recoded to Python and updated by Wanson Choi(wschoi.bhlab@gmail.com) : 2019/02/06 
                 
                 
         DESCRIPTION: This script runs imputation of HLA amino acids and classical alleles using SNP data.        
         
         INPUTS:
         1. Plink dataset (*.bed/bim/fam)
-        2. Reference dataset (*.bgl.phased, *.markers in beagle 3.0.4 format; *.fam/.bim/.FRQ.frq in PLINK format)
-        
+        2. Reference dataset (*.bgl.phased.vcf.gz(Beagle 4.1), *.markers(Beagle 3.0.4); *.fam/.bim/.FRQ.frq in PLINK format)
+    
         DEPENDENCIES: (download and place in the same folder as this script)
         1. PLINK (1.9)  (Will not work with older Plink 1.07)
         2. Beagle (4.1) (Need to rename java executable as beagle.jar)
-        3. merge_tables.pl (Perl script to merge files indexed by a specific column)
-        4. vcf2gprobs.jar (Beagle utility for generating a Beagle v3 genotypes probability file from a Beagle 4.1 vcf file with GT field data)
-        5. beagle2vcf and vcf2phased (Utilities by Phil Stuart for vcf <-> Beagle v3 format)
-        6. ParseDosage.csh (Converts Beagle posterior probabilities [.gprobs] to dosages in PLINK format [.dosage])
-        7. revert_alleles (Utility by Phil Stuart to revert hacked non-ACTG alleles in *.vcf, *.gprobs and *.dosage output files (necessitated by Beagle 4.1) back to allele identities in reference panel)
-        8. If genetic_map_file argument is specified, PLINK format genetic map on cM scale (plink.chr6.GRCh36.map, downloaded from http://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/)
-        
-        # USAGE: ./SNP2HLA_new.csh DATA (.bed/.bim/.fam) REFERENCE (.bgl.phased/.markers/.fam/.bim/.bed/.FRQ.frq) OUTPUT plink max_memory[gb] nthreads niterations genetic_map_file
+        3. vcf2gprobs.jar (Beagle utility for generating a Beagle v3 genotypes probability file from a Beagle 4.1 vcf file with GT field data)
+        4. [Optional] If genetic_map_file argument is specified, PLINK format genetic map on cM scale 
+            (plink.chr6.GRCh36.map, downloaded from http://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/)
 
+        USAGE:
+        python3 SNP2HLA.py 
+                --input `DATA (.bed/.bim/.fam)` 
+                --reference `REFERENCE (.bgl.phased.vcf.gz/.markers/.fam/.bim/.bed/.FRQ.frq)` 
+                --out `OUTPUT`
+    
+        (ex1)
+        python3 SNP2HLA.py 
+                --input data/1958BC 
+                --reference data/Reference_Panel_bglv4/HM_CEU_REF.hg18.imgt3320.bglv4 
+                --out TEST_ex1_SNP2HLA
+    
+        (ex2)
+        python3 SNP2HLA.py 
+                --input data/1958BC 
+                --reference data/Reference_Panel_bglv4/HM_CEU_REF.hg18.imgt3320.bglv4 
+                --out TEST_ex2_SNP2HLA 
+                --dependency dependency/ 
+                --java-mem 10G 
+                --nthreads 4 
+                --iter 10
 
     #################################################################################################
                                      '''),
