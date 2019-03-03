@@ -1,17 +1,17 @@
 PLINK v1.90b4 64-bit (20 Mar 2017)
 Options in effect:
   --allow-no-sex
-  --bfile tests/201900302_ref/HM_CEU_REF.hg18.imgt3320.bglv4
+  --bfile tests/201900303_ref_indel/HM_CEU_REF.hg18.imgt3320.bglv4
   --freq
   --keep-allele-order
-  --out tests/201900302_ref/HM_CEU_REF.hg18.imgt3320.bglv4.FRQ
+  --out tests/201900303_ref_indel/HM_CEU_REF.hg18.imgt3320.bglv4.FRQ
   --silent
 
 Hostname: choewanseon-ui-MacBook-Pro-6.local
 Working directory: /Users/wansun/Git_Projects/MakeReference_v2
-Start time: Sat Mar  2 22:42:04 2019
+Start time: Mon Mar  4 00:01:10 2019
 
-Random number seed: 1551534124
+Random number seed: 1551625270
 16384 MB RAM detected; reserving 8192 MB for main workspace.
 14473 variants loaded from .bim file.
 92 people (45 males, 47 females) loaded from .fam.
@@ -20,6 +20,6 @@ Before main variant filters, 92 founders and 0 nonfounders present.
 Calculating allele frequencies... done.
 Total genotyping rate is 0.902839.
 --freq: Allele frequencies (founders only) written to
-tests/201900302_ref/HM_CEU_REF.hg18.imgt3320.bglv4.FRQ.frq .
+tests/201900303_ref_indel/HM_CEU_REF.hg18.imgt3320.bglv4.FRQ.frq .
 
-End time: Sat Mar  2 22:42:04 2019
+End time: Mon Mar  4 00:01:10 2019
