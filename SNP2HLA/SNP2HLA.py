@@ -352,7 +352,7 @@ def SNP2HLA(_input, _reference_panel, _out,
 
 
         # (2) Imputation result in *.{bed,bim,fam} files (*.vcf.gz => *.{bed,bim,fam})
-        command = ' '.join([PLINK, "--make-bed", "--vcf", __IMPUTED__, "--out", OUTPUT])
+        command = ' '.join([PLINK, "--make-bed", "--vcf", __IMPUTED__, "--a1-allele {} 4 1".format(_reference_panel+".markers"), "--out", OUTPUT])
         print(command)
         os.system(command)
 
