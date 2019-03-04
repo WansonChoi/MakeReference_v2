@@ -618,7 +618,7 @@ def CHECK_DIGITS_PorGgroup(_hla_name, _the_allele, _IAT_Allelelist, _ped_descrip
                 return ':'.join([t_name[0:2], t_name[2:5], t_name[5:7]]) + (t_name_tag if t_name_tag != -1 else "")
 
         else:
-            print("\nNo match for G_group.\n")
+            # print("\nNo match for G_group.\n")
             return "-1"
 
 
@@ -649,7 +649,7 @@ def CHECK_DIGITS_PorGgroup(_hla_name, _the_allele, _IAT_Allelelist, _ped_descrip
 
 
         else:
-            print("\nNo match for P_group.\n")
+            # print("\nNo match for P_group.\n")
             return "-1"
 
 
@@ -958,16 +958,16 @@ if __name__ == '__main__':
 
     # Input (1) : *.ped file
     PED_TYPE = parser.add_mutually_exclusive_group(required=True)
-    PED_TYPE.add_argument("-ped", help="\nHLA Type Data(Standard 4-field allele \"*.ped\" file).\n\n", dest="ped")
-    PED_TYPE.add_argument("-ped-Ggroup", help="\nHLA Type Data(G-group allele \"*.ped\" file).\n\n", dest="ped_G")
-    PED_TYPE.add_argument("-ped-Pgroup", help="\nHLA Type Data(P-group allele \"*.ped\" file).\n\n", dest="ped_P")
+    PED_TYPE.add_argument("--hped", help="\nHLA Type Data with raw HLA allele(ex. 0101).\n\n", dest="hped")
+    PED_TYPE.add_argument("--hped-Ggroup", help="\nHLA Type Data with raw G-group allele(ex. 020601G).\n\n", dest="hped_G")
+    PED_TYPE.add_argument("--hped-Pgroup", help="\nHLA Type Data with raw P-group allele (ex. 0102P).\n\n", dest="hped_P")
 
     # Input (2) : *.iat file
-    parser.add_argument("-iat", help="\nIntegrated Allele Table file(*.iat).\n\n", required=True)
-    parser.add_argument("-imgt", help="\nSpecifying the IMGT-HLA version.\n\n", required=True)
+    parser.add_argument("--iat", help="\nIntegrated Allele Table file(*.iat).\n\n", required=True)
+    parser.add_argument("--imgt", help="\nSpecifying the IMGT-HLA version.\n\n", required=True)
 
     # Ouptut Prefix
-    parser.add_argument("-o", help="\nOutput file prefix.\n\n", required=True)
+    parser.add_argument("--out", "-o", help="\nOutput file prefix.\n\n", required=True)
     # parser.add_argument("--char-NotFound", help="\nThe symbol(character) to mark HLA alleles which can't be found in given IMGT-HLA version(Novel or Erroneous allele).\n\n", default="LeaveItAlone")
     parser.add_argument("--leave-NotFound", help="\nLeaving HLA alleles which are not found in given *.iat file(Novel or Erroneous allele) intact.\n\n", action='store_true')
 
@@ -1140,41 +1140,27 @@ if __name__ == '__main__':
         sys.exit()
 
     ## Which type of ped file given?
-    _p_ped = -1
-    _p_ped_descriptor = -1
+    _p_hped = -1
+    _p_hped_descriptor = -1
 
-    if args.ped:
+    if args.hped:
         # Standard 4-field *.ped file given
-        _p_ped = args.ped
-        _p_ped_descriptor = 1
-    elif args.ped_G:
+        _p_hped = args.hped
+        _p_hped_descriptor = 1
+    elif args.hped_G:
         # G-group *.ped file given
-        _p_ped = args.ped_G
-        _p_ped_descriptor = 2
-    elif args.ped_P:
+        _p_hped = args.hped_G
+        _p_hped_descriptor = 2
+    elif args.hped_P:
         # P-group *.ped file given
-        _p_ped = args.ped_P
-        _p_ped_descriptor = 3
+        _p_hped = args.hped_P
+        _p_hped_descriptor = 3
     else:
         # Assuming at least three of them given, there won't be the case which comes to here.
         print(std_ERROR_MAIN_PROCESS_NAME + "Argument for input *.ped file is not appropriate. Please check it again.\n")
         sys.exit()
 
-    # ## If input ped file is given as G-group(or P-group), then user can't choose output format as same G-group(as same to P-group)
-    # if (_p_ped_descriptor == 2 and FIELD_FORMAT == 5):
-    #     print(
-    #         std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation G-group to G-group is pointless).")
-    #     print("Skip this Transformation Request.\n")
-    #     sys.exit()
-    #
-    #     # (2018. 7. 10.) P to P or G to G 여도 NoDoubleColon인 경우는 할 수 있게 해줘야할듯.
-    #
-    # if (_p_ped_descriptor == 3 and FIELD_FORMAT == 6):
-    #     print(
-    #         std_WARNING_MAIN_PROCESS_NAME + "You just asked pointless transformation(Transformation P-group to P-group is pointless).")
-    #     print("Skip this Transformation Request.\n")
-    #     sys.exit()
 
-    NomenCleaner(_p_ped, _p_ped_descriptor, args.iat, args.imgt, args.o, FIELD_FORMAT, __f_NoCaption=args.NoCaption,
+    NomenCleaner(_p_hped, _p_hped_descriptor, args.iat, args.imgt, args.out, FIELD_FORMAT, __f_NoCaption=args.NoCaption,
                  __leave_NotFound=args.leave_NotFound)
 
