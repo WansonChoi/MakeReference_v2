@@ -169,7 +169,7 @@ def NomenCleaner(_hped, _hped_descriptor, _iat, _imgt, _out, _field_format, __f_
     ### DataFrame of Searched alleles.
     df_IAT_Searched = pd.DataFrame(l_rows_Searched)
     # print(df_IAT_Searched.head())
-    # df_IAT_Searched.to_csv(_out+'.testest.chped', sep='\t', header=False, index=False)
+    # df_IAT_Searched.to_csv(_out+'.justSearched.chped', sep='\t', header=False, index=False)
 
 
     ### DataFrame of marks of searched alleles.
@@ -835,7 +835,7 @@ def Main_Transformation(_df_IAT_Searched, _IAT_dict2, _f_NoCaption=False):
             idx2 = idx1 + 1
 
             t_df_IAT_Searched = \
-                _df_IAT_Searched.iloc[:, [idx1, idx2]].applymap(lambda x : _IAT_dict2[HLA_names[i]][x] if x != '-1' else x)
+                _df_IAT_Searched.iloc[:, [idx1, idx2]].applymap(lambda x : _IAT_dict2[HLA_names[i]][x] if (x != '-1' and x != '0') else x)
 
             l_temp.append(t_df_IAT_Searched)
             # print(t_df_IAT_Searched)
@@ -848,7 +848,7 @@ def Main_Transformation(_df_IAT_Searched, _IAT_dict2, _f_NoCaption=False):
 
     ### Check gene caption.
     if not _f_NoCaption:
-        _df_Transformed = pd.concat([_df_Transformed.iloc[:, [2*i, 2*i+1]].applymap(lambda x : '*'.join([HLA_names[i], x]) if x != '-1' else x) for i in range(0, len(HLA_names))], axis=1)
+        _df_Transformed = pd.concat([_df_Transformed.iloc[:, [2*i, 2*i+1]].applymap(lambda x : '*'.join([HLA_names[i], x]) if (x != '-1' and x != '0') else x) for i in range(0, len(HLA_names))], axis=1)
 
 
     return _df_Transformed
@@ -1106,6 +1106,29 @@ if __name__ == '__main__':
     #                           "--P-group",
     #                           "--leave-NotFound"
     #                           ])
+
+
+    ### < raw P-group to >
+
+    # 4-field
+    # args = parser.parse_args(["--hped-Pgroup", "/Users/wansun/Git_Projects/MakeReference_v2/data/NomenCleaner/v2/BEFORE_DummyHPED.rawPgroup.Ncap.Ndc.10.novelallele.hped",
+    #                           "--iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190303_hg19_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg19.imgt3320.iat",
+    #                           "--imgt", "3320",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/data/NomenCleaner/v2/from_Pgroup_to/EMERGENCY_AFTER_DummyHPED.rawPgroup.Ncap.Ndc.10.novelallele.imgt3320.Pgroup.chped",
+    #                           "--4field",
+    #                           "--leave-NotFound"
+    #                           ])
+
+    # P-group
+    # args = parser.parse_args(["--hped-Pgroup", "/Users/wansun/Git_Projects/MakeReference_v2/data/NomenCleaner/v2/BEFORE_DummyHPED.rawPgroup.Ncap.Ndc.10.novelallele.hped",
+    #                           "--iat", "/Users/wansun/Git_Projects/HATK/tests/_1_IMGT2Sequence/20190303_hg19_imgt3320/HLA_INTEGRATED_ALLELE_TABLE.hg19.imgt3320.iat",
+    #                           "--imgt", "3320",
+    #                           "-o", "/Users/wansun/Git_Projects/MakeReference_v2/data/NomenCleaner/v2/from_Pgroup_to/EMERGENCY_AFTER_DummyHPED.rawPgroup.Ncap.Ndc.10.novelallele.imgt3320.Pgroup.chped",
+    #                           "--P-group",
+    #                           "--leave-NotFound"
+    #                           ])
+
+
 
 
 
