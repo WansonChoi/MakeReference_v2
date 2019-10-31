@@ -14,7 +14,7 @@ std_WARNING_MAIN_PROCESS_NAME = "\n[%s::WARNING]: " % (os.path.basename(__file__
 def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
                   _previous_version=False, _hg="19",
                   _mem="2000m", _p_dependency="./dependency",
-                  __save_intermediates=False):
+                  __save_intermediates=True):
 
     """
     """
@@ -194,7 +194,6 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
     EXTRACT_FOUNDERS = 1
     MERGE = 1
     QC = 1
-
     PREPARE = 1
     PHASE = 1
     CLEANUP = 0 # set to zero for time being
@@ -252,7 +251,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
 
         # command for checking output from encodeVariant.py(.pl)
         command = ' '.join([plink, "--file", OUTPUT+'.AA.CODED', "--missing-genotype 0", "--make-bed", "--out", OUTPUT+'.AA.TMP'])
-        # print(command)
+        print(command)
         os.system(command)
 
 
@@ -291,12 +290,12 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
             encodeHLA(HLA_DATA, OUTPUT, _hg)
         else:
             command = ' '.join([os.path.join(p_src_MakeReferece, "encodeHLA.pl"), HLA_DATA, OUTPUT+".HLA.map", ">", OUTPUT+".HLA.ped"])
-            # print(command)
+            print(command)
             os.system(command)
 
 
         command = ' '.join([plink, "--file", OUTPUT+'.HLA', "--make-bed", "--out", OUTPUT+'.HLA'])
-        # print(command)
+        print(command)
         os.system(command)
 
         index += 1
@@ -407,10 +406,11 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         # print(command)
         os.system(command)
 
-        command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.hardy.hwe', "|", "awk", "' $9 < 0.000001 { print $2 }'", "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.hardy")])
+	# hwe filtering might be a bit restrict here for MHC region, plus it's an admixed population,  set for 10^-20 for now?
+        #command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.hardy.hwe', "|", "awk", "' $9 < 1e-20 { print $2 }'", "|", "sort -u", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.hardy")])
         # print(command)
-        os.system(command)
-        command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.freq.frq', "|", "awk", "' $5 < 0.01 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.freq")])
+        #os.system(command)
+        command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.freq.frq', "|", "awk", "' $5 < 0.005 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.freq")])
         # print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1){print}}'", SNP_DATA2+'.FOUNDERS.missing.lmiss', "|", "awk", "' $5 > 0.05 { print $2 } '", ">", os.path.join(INTERMEDIATE_PATH, "remove.snps.missing")])
@@ -531,19 +531,19 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         TMP_all_remove_snps = os.path.join(INTERMEDIATE_PATH, "all.remove.snps")
 
         command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--freq", "--out", OUTPUT+'.MERGED.FOUNDERS.FRQ'])
-        # print(command)
+        print(command)
         os.system(command)
         command = ' '.join(["awk", "'{if (NR > 1 && ($5 < 0.0001 || $5 > 0.9999)){print $2}}'", OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_all_remove_snps])
-        # print(command)
+        print(command)
         os.system(command)
         command = ' '.join(["awk", '\'{if (NR > 1){if (($3 == "A" && $4 == "P") || ($4 == "A" && $3 == "P")){print $2 "\tP"}}}\'', OUTPUT+'.MERGED.FOUNDERS.FRQ.frq', ">", TMP_allele_order])
-        # print(command)
+        print(command)
         os.system(command)
 
         # QC: Maximum per-SNP missing > 0.5, MAF > 0.1%
         # command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--reference-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT]) # Plink 1.07
         command = ' '.join([plink, "--bfile", OUTPUT+'.MERGED.FOUNDERS', "--a1-allele", TMP_allele_order, "--exclude", TMP_all_remove_snps, "--geno 0.5", "--make-bed", "--out", OUTPUT])   # Plink 1.9
-        # print(command)
+        print(command)
         os.system(command)
 
         # # Calculate allele frequencies => It will done after marker panel for beagle v4 is created (Next code block).
@@ -623,7 +623,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         ## --recode transpose (*.tped. *.tfam) <- Plink1.9
         command = ' '.join([plink, "--recode transpose", "--bed", OUTPUT+".bed", "--fam", OUTPUT+".fam", "--bim", temp_bim,
                             "--keep-allele-order",  "--alleleACGT", "--out", OUTPUT+".pENCODED"])
-        # print(command)
+        print(command)
         os.system(command)
 
 
@@ -637,7 +637,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
                             "--tfam", OUTPUT+".pENCODED.tfam",
                             "--out", OUTPUT + ".bglv4",
                             "--a1-allele", temp_ref])
-        # print(command)
+        print(command)
         os.system(command)
 
 
@@ -645,7 +645,7 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
 
         # Calculate allele frequencies => Previously done in the last of "QC" code block.
         command = ' '.join([plink, "--bfile", OUTPUT+".bglv4", "--keep-allele-order", "--freq", "--out", OUTPUT+'.bglv4.FRQ'])
-        # print(command)
+        print(command)
         os.system(command)
 
 
@@ -667,36 +667,36 @@ def MakeReference(_INPUT_DATA, _hped, _OUTPUT, _dictionary_AA, _dictionary_SNPS,
         ## Preparing files for Beagle which will be used in linkage2beagle.jar
 
         # *.markers
-        # command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])     # plink1.07
+        #command = ' '.join(["awk", '\'{print $2 " " $4 " " $5 " " $6}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])     # plink1.07
         command = ' '.join(["awk", '\'{print $2 " " $4 " " $6 " " $5}\'', OUTPUT+'.bglv4.bim', ">", OUTPUT+'.bglv4.markers'])       # plink1.9
-        # print(command)
+        print(command)
         os.system(command)
 
         # --recode (*.ped, *.map) => for *.dat and *.nopheno.ped
         command = ' '.join([plink, "--bfile", OUTPUT+".bglv4", "--keep-allele-order", "--recode", "--alleleACGT", "--out", OUTPUT+".bglv4"])
-        # print(command)
+        print(command)
         os.system(command)
 
         # *.dat
         command = ' '.join(["awk", '\'{print "M " $2}\'', OUTPUT+'.bglv4.map', ">", OUTPUT+'.bglv4.dat'])
-        #print(command)
+        print(command)
         os.system(command)
 
         # *.nopheno.ped
         command = ' '.join(["cut -d ' ' -f1-5,7-", OUTPUT+'.bglv4.ped', ">", OUTPUT+'.bglv4.nopheno.ped'])
-        # print(command)
+        print(command)
         os.system(command)
 
 
         # *.bgl
         command = ' '.join([linkage2beagle, "pedigree="+OUTPUT+'.bglv4.nopheno.ped', "data="+OUTPUT+'.bglv4.dat', "beagle="+OUTPUT+'.bglv4.bgl', "standard=true", ">", OUTPUT+'.bglv4.bgl.log'])
-        # print(command)
+        print(command)
         os.system(command)
 
 
         ## *.vcf
         command = ' '.join([beagle2vcf, "6", OUTPUT+".bglv4.markers", OUTPUT+".bglv4.bgl", "0", "|", "gzip", ">", OUTPUT+".bglv4.vcf.gz"])
-        # print(command)
+        print(command)
         os.system(command)
 
 

@@ -119,8 +119,8 @@ def SNP2HLA(_input, _reference_panel, _out,
     if EXTRACT_MHC:
 
         print("[{}] Extracting SNPs from the MHC.".format(index)); index += 1
-
-        command = ' '.join([PLINK, "--bfile", _input, "--chr 6", "--from-mb 29 --to-mb 34", "--maf 0.025", "--make-bed", "--out", __MHC__])
+        #MAF >1% as imputation threshold
+        command = ' '.join([PLINK, "--bfile", _input, "--chr 6", "--from-mb 28 --to-mb 34", "--maf 0.01", "--make-bed", "--out", __MHC__])
         print(command)
         os.system(command)
 
@@ -229,7 +229,14 @@ def SNP2HLA(_input, _reference_panel, _out,
                             OUTPUT+".SNPS.frq.parsed", ">>", OUTPUT+".SNPS.toremove"])
         print(command)
         os.system(command)
-
+        
+        command = ' '.join(["sort", OUTPUT+".SNPS.toremove", "|","uniq > temp" ])
+        print(command)
+        os.system(command)
+ 
+        command = ' '.join(['mv temp',OUTPUT+".SNPS.toremove" ] )
+        print(command)
+        os.system(command)
 
         ## Making QCd SNP file
         command = ' '.join([PLINK, "--bfile", __MHC__+".FLP", "--geno 0.2", "--exclude", OUTPUT+".SNPS.toremove", "--flip", OUTPUT+".SNPS.toflip2", "--make-bed", "--out", __MHC__+".QC"])
@@ -372,7 +379,7 @@ def SNP2HLA(_input, _reference_panel, _out,
 
 
 
-        os.system(' '.join(["rm ", __MHC__+".QC.vcf.gz"]))
+        #os.system(' '.join(["rm ", __MHC__+".QC.vcf.gz"]))
         os.system(' '.join(["rm -rf", JAVATMP]))
 
         
